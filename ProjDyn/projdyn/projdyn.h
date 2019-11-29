@@ -202,13 +202,13 @@ namespace ProjDyn {
 
 			// ------------------------------------
 			// TODO: Update temperature here
-			updateTemperatureUniform(10, 100);
+			updateTemperatureHeight(200, 100);
 			// ------------------------------------
 
             return true;
         }
 
-		// Function to update temperature
+		// Function to update temperature uniformly on the mesh
 		void updateTemperatureUniform(Scalar upTemp, Scalar maxTemp) {
 			Vector addTemp;
 			addTemp.resize(m_num_verts);
@@ -218,6 +218,27 @@ namespace ProjDyn {
 			if (m_temperatures[0] >= maxTemp) {
 				m_temperatures.setOnes();
 				m_temperatures *= maxTemp;
+			}
+		}
+
+		// Function to update temperature according to heigth
+		void updateTemperatureHeight(Scalar upTemp, Scalar maxTemp) {
+			Vector groundTemp;
+			groundTemp.resize(m_num_verts);
+			groundTemp.setOnes();
+			groundTemp *= maxTemp;
+
+			Vector groundHeight;
+			groundHeight.resize(m_num_verts);
+			groundHeight.setOnes();
+			groundHeight *= m_floorHeight;
+
+			m_temperatures = groundTemp - upTemp * (m_positions.col(1)-groundHeight);
+
+			for (int i = 0; i < m_num_verts; i++) {
+				if (m_temperatures[i] < 0) {
+					m_temperatures[i] = 0;
+				}
 			}
 		}
 
