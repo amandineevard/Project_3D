@@ -292,8 +292,6 @@ public:
         // Simulate one time step
         m_simulator.step(m_numIterations);
 
-		updateColor(); //New (to change color)
-
         return uploadPositions(forcedUpload);
     }
 
@@ -387,6 +385,9 @@ public:
                 m_uploadNormals(1, vInd) = normal(1);
                 m_uploadNormals(2, vInd) = normal(2);
             }
+			
+			// Upload the colors
+			updateColor(); //New (to change color)
 
             //Upload the normals
             m_viewer->updateShaderNormals(m_uploadNormals, forcedUpload);

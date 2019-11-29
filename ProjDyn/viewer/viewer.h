@@ -83,8 +83,7 @@ public:
 
 	// NEW sketch of function to modify colors
 	void changeColor(MatrixXf vertex_color) {
-		mShader.bind();
-		mShader.uploadAttrib("color", vertex_color);
+		m_colors = vertex_color;
 	}
 
     void loadMesh(string filename) {
@@ -660,6 +659,8 @@ public:
 
         if (m_reupload_normals) {
 			mShader.uploadAttrib("normal", m_updated_shader_normals);
+			mShader.uploadAttrib("color", m_colors);
+
 		}
 
         Eigen::Matrix4f model, view, proj;
@@ -1045,6 +1046,9 @@ private:
     int n_vertices = 0;
     int n_faces = 0;
     int n_edges = 0;
+
+	//Color attribute for drawContents()
+	MatrixXf m_colors;
 
 	// Temporary storage for updated vertex positions or normals that have to be uploaded to the shader
 	// in the next drawContents() call.
