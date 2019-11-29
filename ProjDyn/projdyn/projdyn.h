@@ -127,6 +127,10 @@ namespace ProjDyn {
             m_old_positions.resize(m_num_verts, 3);
             m_old_positions.setZero();
 
+			// Initialize temperature
+			m_temperatures.resize(m_num_verts);
+			m_temperatures.setZero();
+
             // With this, the system is initialized
             m_system_init = true;
 
@@ -173,7 +177,7 @@ namespace ProjDyn {
                 // --------------------------------------------------
 #pragma omp parallel for
                 for (int j = 0; j < m_constraints.size(); j++) {
-                    m_constraints[j]->project(m_positions, m_constraint_projections);
+                    m_constraints[j]->project(m_positions, m_constraint_projections, m_temperatures);
                 }
 
                 // --------------------------------------------------
@@ -196,8 +200,26 @@ namespace ProjDyn {
                 m_velocities = (1. / m_time_step) * (m_positions - m_old_positions);
             }
 
+			// ------------------------------------
+			// TODO: Update temperature here
+			updateTemperatureUniform(10, 100);
+			// ------------------------------------
+
             return true;
         }
+
+		// Function to update temperature
+		void updateTemperatureUniform(Scalar upTemp, Scalar maxTemp) {
+			Vector addTemp;
+			addTemp.resize(m_num_verts);
+			addTemp.setOnes();
+			addTemp *= upTemp * m_time_step;
+			m_temperatures += addTemp;
+			if (m_temperatures[0] >= maxTemp) {
+				m_temperatures.setOnes();
+				m_temperatures *= maxTemp;
+			}
+		}
 
 		// Provide a n by 3 scalar matrix containing x, y, z positions of each vertex per row
 		// and a m by 3 index matrix containing the indices of the vertices in each triangle
@@ -223,9 +245,16 @@ namespace ProjDyn {
 		}
 
 		// Reset vertex positions to their initial positions, as given when setMesh() was called.
+		// NEW: also reset temperature
 		void resetPositions() {
 			m_positions = m_initial_positions;
 			m_velocities.setZero(m_positions.rows(), 3);
+			m_temperatures.setZero();
+		}
+
+		// Getter for temperatures
+		const Vector& getTemperatures() const {
+			return m_temperatures;
 		}
 
 		const Triangles& getTriangles() const {
@@ -393,6 +422,9 @@ namespace ProjDyn {
 		// Note that those are pre-multiplied by the inverse mass, such that
 		// the momentum term can be computed cheaper.
 		Positions m_ext_forces;
+
+		// Temperature
+		Vector m_temperatures;
 
 		// Internal quantities during simulation
 		Positions m_velocities, m_momentum, m_old_positions;

@@ -82,16 +82,7 @@ public:
     }
 
 	// NEW sketch of function to modify colors
-	float inc = 0.05f;
-	void changeColor() {
-		MatrixXf vertex_color(3, n_vertices);
-		vertex_color.setZero();
-		for (int i = 0; i < n_vertices; i++) vertex_color.col(i) = Vector3f(inc, 0.59, 0.5);
-		inc += 0.05f;
-		if (inc > 1.0f) {
-			inc = 0;
-		}
-
+	void changeColor(MatrixXf vertex_color) {
 		mShader.bind();
 		mShader.uploadAttrib("color", vertex_color);
 	}

@@ -57,7 +57,7 @@ namespace ProjDyn {
                             - NOTE: this matrix contains all constraints, and this projection should
                               fill the rows starting from m_constraint_id
         */
-        virtual void project(const Positions& positions, Positions& projections) = 0;
+        virtual void project(const Positions& positions, Positions& projections, const Vector& temperatures = Vector(0)) = 0;
 
         /** Add the constraint to the matrix A that maps vertex positions to the linear part of the constraint projection.
             Specifically, adds a row w_i S_i A_i to the matrix (as triplets), where the notation of the paper is used.
@@ -159,10 +159,17 @@ namespace ProjDyn {
             assert(m_vertex_indices.size() == 2);
             // Compute rest edge length
             m_rest_length = (positions.row(m_vertex_indices[1]) - positions.row(m_vertex_indices[0])).norm();
+			m_initial_rest_length = m_rest_length;
         }
 
-        virtual void project(const Positions& positions, Positions& projection) override {
-            // Check for correct size of the projection auxiliary variable;
+		void updateAttributeTemp(const Vector& temperatures) {
+			Scalar temperature = 0.5 * (temperatures[m_vertex_indices[0]] + temperatures[m_vertex_indices[1]]);
+			m_rest_length = m_initial_rest_length + (m_initial_rest_length * 0.1 * temperature);
+		}
+
+        virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {
+			updateAttributeTemp(temperatures);
+			// Check for correct size of the projection auxiliary variable;
             assert(projection.rows() > m_constraint_id);
             // Compute the current edge
             projection.row(m_constraint_id) = positions.row(m_vertex_indices[1]) - positions.row(m_vertex_indices[0]);
@@ -178,6 +185,7 @@ namespace ProjDyn {
         }
     protected:
         Scalar m_rest_length = 0;
+		Scalar m_initial_rest_length = 0;
 
         virtual std::vector<Triplet> getTriplets(Index currentRow) override {
             std::vector<Triplet> triplets;
@@ -207,7 +215,7 @@ namespace ProjDyn {
             m_target_positions = targetPositions;
         }
 
-        virtual void project(const Positions& positions, Positions& projection) override {
+        virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {
             // Check for correct size of the projection auxiliary variable;
             assert(projection.rows() >= m_constraint_id + getNumConstraintRows());
             // Set given positions for selected vertices
@@ -260,7 +268,7 @@ namespace ProjDyn {
         {
         }
 
-        virtual void project(const Positions& positions, Positions& projection) override {
+        virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {
             // Check for correct size of the projection auxiliary variable;
             assert(projection.rows() > m_constraint_id);
             // Set corrected positions for vertices that are below the floor height
@@ -333,7 +341,7 @@ namespace ProjDyn {
             if (didCorrect) std::cout << "Fixed!" << std::endl;
         }
 
-        virtual void project(const Positions& positions, Positions& projection) override {
+        virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {
             // Compute deformation gradient, clamp its singular values and output
             // corrected deformation gradient as the projection
 
@@ -423,7 +431,7 @@ namespace ProjDyn {
             m_rest_edges_inv = restEdges.inverse();
         }
 
-        virtual void project(const Positions& positions, Positions& projection) override {
+        virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {
             // Project the current edges isometrically into 2d, compute the deformation gradient there
             // then perform the SVD on the def.grad., clamp the singular values, and project the deformation
             // gradient back.
@@ -547,7 +555,7 @@ namespace ProjDyn {
             }
         }
 
-        virtual void project(const Positions& positions, Positions& projection) override {
+        virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {
             if (m_rest_mean_curv < 1e-12) {
                 projection.row(m_constraint_id).setZero();
             }
@@ -614,7 +622,7 @@ namespace ProjDyn {
             const Positions& positions, const Triangles& triangles)
             : BendingConstraint(vertexStar, weight, voronoiArea, positions, triangles) {};
 
-        virtual void project(const Positions& positions, Positions& projection) override {
+        virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {
             projection.row(m_constraint_id).setZero();
         }
 
@@ -632,7 +640,7 @@ namespace ProjDyn {
             m_center = center;
         }
 
-        virtual void project(const Positions& positions, Positions& projection) override {
+        virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {
             projection.row(m_constraint_id) = m_center.transpose();
         }
 
@@ -674,7 +682,7 @@ namespace ProjDyn {
             // [Add code here!]
         }
 
-        virtual void project(const Positions& positions, Positions& projection) override {
+        virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {
             // Compute best fit of original one ring edges to current one ring edges
             // Fill these edges into the projection matrix, starting from the row
             // given by m_constraint_id

@@ -292,6 +292,8 @@ public:
         // Simulate one time step
         m_simulator.step(m_numIterations);
 
+		updateColor(); //New (to change color)
+
         return uploadPositions(forcedUpload);
     }
 
@@ -320,7 +322,6 @@ public:
             while (m_simActive) {
                 std::this_thread::sleep_for(time);
                 update();
-				m_viewer->changeColor(); //New (to change color)
                 glfwPostEmptyEvent();
             }
         }
@@ -393,6 +394,16 @@ public:
 
         return true;
     }
+
+	void updateColor() {
+		ProjDyn::Vector temperatures = m_simulator.getTemperatures();
+		ProjDyn::Index n_vertices = m_simulator.getNumVerts();
+		MatrixXf vertex_color(3, n_vertices);
+		vertex_color.setZero();
+		for (int i = 0; i < n_vertices; i++) vertex_color.col(i) = Vector3f(temperatures[i]/100, 0.2, 1.0 - temperatures[i] / 100);
+		m_viewer->changeColor(vertex_color);
+		std::cout << "Temperature: " << temperatures[0] << std::endl;
+	}
 
     // Set external forces to point into downwards y direction with a certain magnitude
     void setGravity(ProjDyn::Scalar g) {
