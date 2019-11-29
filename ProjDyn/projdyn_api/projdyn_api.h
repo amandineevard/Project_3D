@@ -387,6 +387,7 @@ public:
             }
 
             //Upload the normals
+			m_viewer->changeColor(); //New (to change color)
             m_viewer->updateShaderNormals(m_uploadNormals, forcedUpload);
         }
 
