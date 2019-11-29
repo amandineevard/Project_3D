@@ -266,7 +266,7 @@ namespace ProjDyn {
             // Set corrected positions for vertices that are below the floor height
             projection.row(m_constraint_id) = positions.row(m_vert_ind);
             if (positions(m_vert_ind, 1) < m_floor_height) {
-                projection(m_constraint_id, 1) = (1 + m_force_factor) * m_floor_height - m_force_factor * positions(m_vert_ind, 1);
+				 projection(m_constraint_id, 1) = (1 + m_force_factor) * m_floor_height - m_force_factor * positions(m_vert_ind, 1);
             }
         }
 

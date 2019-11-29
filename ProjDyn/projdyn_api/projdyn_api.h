@@ -320,6 +320,7 @@ public:
             while (m_simActive) {
                 std::this_thread::sleep_for(time);
                 update();
+				m_viewer->changeColor(); //New (to change color)
                 glfwPostEmptyEvent();
             }
         }
@@ -387,7 +388,6 @@ public:
             }
 
             //Upload the normals
-			m_viewer->changeColor(); //New (to change color)
             m_viewer->updateShaderNormals(m_uploadNormals, forcedUpload);
         }
 
