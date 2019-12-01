@@ -202,7 +202,7 @@ namespace ProjDyn {
 
 			// ------------------------------------
 			// TODO: Update temperature here
-			updateTemperatureHeight(200, 100);
+			updateTemperatureHeight(600, 100);
 			// ------------------------------------
 
             return true;

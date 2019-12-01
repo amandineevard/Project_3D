@@ -431,7 +431,17 @@ namespace ProjDyn {
             m_rest_edges_inv = restEdges.inverse();
         }
 
+		void updateAttributeTemp(const Vector& temperatures) {
+			Scalar temperature = 1/3.0 * (temperatures[m_vertex_indices[0]] + 
+				                          temperatures[m_vertex_indices[1]] + 
+				                          temperatures[m_vertex_indices[2]]);
+			m_strain_freedom = 0.01 * temperature;
+		}
+
         virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {
+			// Use current temperature to define a different m_strain_freedom for every triangle
+			updateAttributeTemp(temperatures);
+
             // Project the current edges isometrically into 2d, compute the deformation gradient there
             // then perform the SVD on the def.grad., clamp the singular values, and project the deformation
             // gradient back.
@@ -555,7 +565,22 @@ namespace ProjDyn {
             }
         }
 
+		void updateAttributeTemp(const Vector& temperatures) {
+			// Temperature of the vertex already available
+			Scalar temperature = temperatures[m_vertex_indices[0]];
+			
+			// Low temperature implies shrinking (curvature increases)
+			// High temperature implies inflation (curvature decreases)
+			m_rest_mean_curv *= 1 + 0.01 * (temperature / 100.0);
+			m_rest_mean_curv_vec *= 1 + 0.01 * (temperature / 100.0);
+		}
+
         virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {
+			// Use current temperature to change the reference curvature value:
+			// high temperature -> inflation -> lower curvature
+			// low temperature  -> shrinking -> higher curvature
+			updateAttributeTemp(temperatures);
+
             if (m_rest_mean_curv < 1e-12) {
                 projection.row(m_constraint_id).setZero();
             }
