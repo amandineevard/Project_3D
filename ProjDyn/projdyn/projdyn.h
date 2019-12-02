@@ -275,10 +275,10 @@ namespace ProjDyn {
 
 		// Function to update temperature according to heigth
 		void updateTemperatureDiffusion(Scalar maxTemp) {
-			Vector groundTemp;
+			/*Vector groundTemp;
 			groundTemp.resize(m_num_verts);
 			groundTemp.setOnes();
-			groundTemp *= maxTemp;
+			groundTemp *= maxTemp;*/
 
 			Vector groundHeight;
 			groundHeight.resize(m_num_verts);
@@ -287,7 +287,7 @@ namespace ProjDyn {
 
 
 			for (int i = 0; i < m_num_verts; i++) {
-				if (m_positions.col(1)[i]-groundHeight[i] < 0.001 || m_positions.col(1)[i]-groundHeight[i] < 0) {
+				if (m_positions.col(1)[i]-groundHeight[i] < 0.00001) {
 					m_temperatures[i] = maxTemp;
 				}
 			}
@@ -299,15 +299,15 @@ namespace ProjDyn {
 				Scalar ti = m_temperatures[i];
 				std::vector<int> neig = m_neighbors.at(i);
 				int nb_neighbors = neig.size();
-				std::cout << "nb_neighbors i = " << nb_neighbors <<"\n";
+				//std::cout << "nb_neighbors i = " << nb_neighbors <<"\n";
 				Scalar new_temp_i = 0;
 				for(int j: neig){
 					Scalar tj = m_temperatures[j];
-					new_temp_i += 1.0/nb_neighbors * (tj-ti)*10*m_time_step/((m_positions.row(i)-m_positions.row(j)).norm());
+					new_temp_i += 1.0/nb_neighbors * (tj-ti)*1*m_time_step/((m_positions.row(i)-m_positions.row(j)).norm());
 				}
 				new_temp[i] = ti+new_temp_i;
-				std::cout << "new temp i = " << new_temp_i <<"\n";
-				if (new_temp[i] > 100){new_temp[i] = 100;}
+				//std::cout << "new temp i = " << new_temp_i <<"\n";
+				if (new_temp[i] > maxTemp){new_temp[i] = maxTemp;}
 				if(new_temp[i] <0 ){new_temp[i] = 0;}
 			}
 			m_temperatures = new_temp;
