@@ -41,7 +41,6 @@ namespace ProjDyn {
                 }
             }
         }
-
         return vertexStars;
     }
 

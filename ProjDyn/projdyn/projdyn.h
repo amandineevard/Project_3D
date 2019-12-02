@@ -131,6 +131,35 @@ namespace ProjDyn {
 			m_temperatures.resize(m_num_verts);
 			m_temperatures.setZero();
 
+			//create array of neighbors:
+
+            std::map<int, std::vector<int>> dictNeigbhors;
+            for(int i = 0; i < m_num_verts; i++) {
+				std::vector<int> vect;
+				for(int k=0;k<m_num_tris;k++){
+					for(int j=0 ; j<3 ;j++){
+						auto ind = m_triangles(k,j);
+						if(ind == i ) {
+							if (j == 0) {
+								vect.push_back(m_triangles(k, 1));
+								vect.push_back(m_triangles(k, 2));
+							} else if (j == 1) {
+								vect.push_back(m_triangles(k, 0));
+								vect.push_back(m_triangles(k, 2));
+							} else {
+								vect.push_back(m_triangles(k, 0));
+								vect.push_back(m_triangles(k, 1));
+							}
+						}
+					}
+				}
+				sort( vect.begin(), vect.end() );
+				vect.erase( unique( vect.begin(), vect.end() ), vect.end() );
+				dictNeigbhors.insert(std::pair <int,std::vector<int>>  (i,vect));
+            }
+            m_neighbors = dictNeigbhors;
+
+
             // With this, the system is initialized
             m_system_init = true;
 
@@ -202,7 +231,9 @@ namespace ProjDyn {
 
 			// ------------------------------------
 			// TODO: Update temperature here
-			updateTemperatureHeight(600, 100);
+			//updateTemperatureHeight(600, 100);
+			updateTemperatureDiffusion(100);
+
 			// ------------------------------------
 
             return true;
@@ -256,20 +287,30 @@ namespace ProjDyn {
 
 
 			for (int i = 0; i < m_num_verts; i++) {
-				if (m_positions.col(1)[i]-groundHeight[i] < 10 && m_positions.col(1)[i]-groundHeight[i] > 0) {
+				if (m_positions.col(1)[i]-groundHeight[i] < 0.001 || m_positions.col(1)[i]-groundHeight[i] < 0) {
 					m_temperatures[i] = maxTemp;
 				}
 			}
-			Vector addTemp;
-			addTemp.resize(m_num_verts);
-			addTemp.setOnes();
+
+			Vector new_temp;
+			new_temp.resize(m_num_verts);
+			new_temp.setZero();
 			for (int i = 0; i < m_num_verts; i++) {
 				Scalar ti = m_temperatures[i];
-				
+				std::vector<int> neig = m_neighbors.at(i);
+				int nb_neighbors = neig.size();
+				std::cout << "nb_neighbors i = " << nb_neighbors <<"\n";
+				Scalar new_temp_i = 0;
+				for(int j: neig){
+					Scalar tj = m_temperatures[j];
+					new_temp_i += 1.0/nb_neighbors * (tj-ti)*10*m_time_step/((m_positions.row(i)-m_positions.row(j)).norm());
+				}
+				new_temp[i] = ti+new_temp_i;
+				std::cout << "new temp i = " << new_temp_i <<"\n";
+				if (new_temp[i] > 100){new_temp[i] = 100;}
+				if(new_temp[i] <0 ){new_temp[i] = 0;}
 			}
-			//addTemp *=  m_time_step;
-
-
+			m_temperatures = new_temp;
 		}
 
 		// Provide a n by 3 scalar matrix containing x, y, z positions of each vertex per row
@@ -476,6 +517,9 @@ namespace ProjDyn {
 
 		// Temperature
 		Vector m_temperatures;
+
+		//neighbors
+		std::map<int, std::vector<int>> m_neighbors;
 
 		// Internal quantities during simulation
 		Positions m_velocities, m_momentum, m_old_positions;
