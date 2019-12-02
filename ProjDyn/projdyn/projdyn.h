@@ -242,6 +242,36 @@ namespace ProjDyn {
 			}
 		}
 
+		// Function to update temperature according to heigth
+		void updateTemperatureDiffusion(Scalar maxTemp) {
+			Vector groundTemp;
+			groundTemp.resize(m_num_verts);
+			groundTemp.setOnes();
+			groundTemp *= maxTemp;
+
+			Vector groundHeight;
+			groundHeight.resize(m_num_verts);
+			groundHeight.setOnes();
+			groundHeight *= m_floorHeight;
+
+
+			for (int i = 0; i < m_num_verts; i++) {
+				if (m_positions.col(1)[i]-groundHeight[i] < 10 && m_positions.col(1)[i]-groundHeight[i] > 0) {
+					m_temperatures[i] = maxTemp;
+				}
+			}
+			Vector addTemp;
+			addTemp.resize(m_num_verts);
+			addTemp.setOnes();
+			for (int i = 0; i < m_num_verts; i++) {
+				Scalar ti = m_temperatures[i];
+				
+			}
+			//addTemp *=  m_time_step;
+
+
+		}
+
 		// Provide a n by 3 scalar matrix containing x, y, z positions of each vertex per row
 		// and a m by 3 index matrix containing the indices of the vertices in each triangle
 		void setMesh(Positions& pos, Triangles& tris) {
