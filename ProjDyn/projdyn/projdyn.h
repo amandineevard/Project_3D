@@ -20,6 +20,7 @@
 #include <iostream>
 
 constexpr double PROJDYN_INITIAL_STIFFNESS = 100.;
+enum temperature_model { constant, diffusion, linear };
 
 namespace ProjDyn {
 	typedef Eigen::SimplicialLDLT<SparseMatrix> SparseSolver;
@@ -159,6 +160,12 @@ namespace ProjDyn {
             }
             m_neighbors = dictNeigbhors;
 
+            //init temperature model:
+			m_tmp_model = constant;
+			m_temp_coef_diffusion = 1.0;
+			m_temp_coef_constant = 10.0;
+			m_temp_coef_linear = 600.0;
+
 
             // With this, the system is initialized
             m_system_init = true;
@@ -230,21 +237,24 @@ namespace ProjDyn {
             }
 
 			// ------------------------------------
-			// TODO: Update temperature here
-			//updateTemperatureHeight(600, 100);
-			updateTemperatureDiffusion(100);
-
+			// Update temperature here
+			if(m_tmp_model == linear){
+				updateTemperatureHeight(100);
+			}else if (m_tmp_model == diffusion){
+				updateTemperatureDiffusion(100);
+			}else{
+				updateTemperatureUniform(100);
+			}
 			// ------------------------------------
-
             return true;
         }
 
 		// Function to update temperature uniformly on the mesh
-		void updateTemperatureUniform(Scalar upTemp, Scalar maxTemp) {
+		void updateTemperatureUniform( Scalar maxTemp) {
 			Vector addTemp;
 			addTemp.resize(m_num_verts);
 			addTemp.setOnes();
-			addTemp *= upTemp * m_time_step;
+			addTemp *= m_temp_coef_constant * m_time_step;
 			m_temperatures += addTemp;
 			if (m_temperatures[0] >= maxTemp) {
 				m_temperatures.setOnes();
@@ -253,7 +263,7 @@ namespace ProjDyn {
 		}
 
 		// Function to update temperature according to heigth
-		void updateTemperatureHeight(Scalar upTemp, Scalar maxTemp) {
+		void updateTemperatureHeight(Scalar maxTemp) {
 			Vector groundTemp;
 			groundTemp.resize(m_num_verts);
 			groundTemp.setOnes();
@@ -264,7 +274,7 @@ namespace ProjDyn {
 			groundHeight.setOnes();
 			groundHeight *= m_floorHeight;
 
-			m_temperatures = groundTemp - upTemp * (m_positions.col(1)-groundHeight);
+			m_temperatures = groundTemp - m_temp_coef_linear * (m_positions.col(1)-groundHeight);
 
 			for (int i = 0; i < m_num_verts; i++) {
 				if (m_temperatures[i] < 0) {
@@ -303,7 +313,7 @@ namespace ProjDyn {
 				Scalar new_temp_i = 0;
 				for(int j: neig){
 					Scalar tj = m_temperatures[j];
-					new_temp_i += 1.0/nb_neighbors * (tj-ti)*1*m_time_step/((m_positions.row(i)-m_positions.row(j)).norm());
+					new_temp_i += 1.0/nb_neighbors * (tj-ti)*m_temp_coef_diffusion*m_time_step/((m_positions.row(i)-m_positions.row(j)).norm());
 				}
 				new_temp[i] = ti+new_temp_i;
 				//std::cout << "new temp i = " << new_temp_i <<"\n";
@@ -347,6 +357,38 @@ namespace ProjDyn {
 		// Getter for temperatures
 		const Vector& getTemperatures() const {
 			return m_temperatures;
+		}
+
+		const temperature_model getTemperatureModel() const{
+			return m_tmp_model;
+		}
+
+		void setTemperatureModel(temperature_model t){
+			m_tmp_model = t;
+		}
+
+		const double getTempCoefConstant() const{
+			return m_temp_coef_constant;
+		}
+
+		void setTempCoefConstant(double t){
+			m_temp_coef_constant = t;
+		}
+
+		const double getTempCoefLinear() const{
+			return m_temp_coef_linear;
+		}
+
+		void setTempCoefLinear(double t){
+			m_temp_coef_linear = t;
+		}
+
+		const double getTempCoefDiffusion() const{
+			return m_temp_coef_diffusion;
+		}
+
+		void setTempCoefDiffusion(double t){
+			m_temp_coef_diffusion = t;
 		}
 
 		const Triangles& getTriangles() const {
@@ -520,6 +562,12 @@ namespace ProjDyn {
 
 		//neighbors
 		std::map<int, std::vector<int>> m_neighbors;
+
+		//temperature model:
+		temperature_model m_tmp_model;
+		Scalar m_temp_coef_diffusion;
+		Scalar m_temp_coef_constant;
+		Scalar m_temp_coef_linear;
 
 		// Internal quantities during simulation
 		Positions m_velocities, m_momentum, m_old_positions;

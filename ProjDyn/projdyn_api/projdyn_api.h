@@ -88,6 +88,45 @@ public:
             setMesh(true);
         });
 
+        PopupButton* popupBtnTemp = new PopupButton(pd_win, "Set Temperature model");
+        Popup* popupTemp = popupBtnTemp->popup();
+        popupTemp->setLayout(new GroupLayout());
+
+        Button* d = new Button(popupTemp, "Constant");
+        d->setCallback([this, popupBtnTemp]() {
+            bool was_active = m_simActive;
+            stop();
+            m_simulator.setTemperatureModel(constant);
+            updateConstraintsGUI();
+            if (was_active) {
+                start();
+            }
+            popupBtnTemp->setPushed(false);
+        });
+        d = new Button(popupTemp, "Linear");
+        d->setCallback([this, popupBtnTemp]() {
+            bool was_active = m_simActive;
+            stop();
+            m_simulator.setTemperatureModel(linear);
+            updateConstraintsGUI();
+            if (was_active) {
+                start();
+            }
+            popupBtnTemp->setPushed(false);
+        });
+        d = new Button(popupTemp, "Diffusion");
+        d->setCallback([this, popupBtnTemp]() {
+            bool was_active = m_simActive;
+            stop();
+            m_simulator.setTemperatureModel(diffusion);
+            updateConstraintsGUI();
+            if (was_active) {
+                start();
+            }
+            popupBtnTemp->setPushed(false);
+        });
+
+
         PopupButton* popupBtn = new PopupButton(pd_win, "Add constraints", ENTYPO_ICON_LINK);
         Popup* popup = popupBtn->popup();
         popup->setLayout(new GroupLayout());
@@ -211,6 +250,30 @@ public:
                 if (wasRunning) start();
             });
         }
+        //add temperature model coef slider:
+        temperature_model  tm = m_simulator.getTemperatureModel();
+        std::string name = "";
+        if(tm == constant){name = "constant";}
+        if(tm == linear){name = "linear";}
+        if(tm== diffusion){name = "diffusion";}
+        new Label(m_constraint_window, name, "sans-bold");
+        Widget* panel = new Widget(m_constraint_window);
+        panel->setLayout(new BoxLayout(nanogui::Orientation::Horizontal, nanogui::Alignment::Middle, 0, 10));
+
+        // Add a sliderand set defaults
+        TemperatureSlider* slider = new TemperatureSlider(panel, m_viewer, m_simulator.getNumVerts(), &m_simulator);
+
+        // Re-initialize system and update positions once the user lets go of the slider
+        slider->setFinalCallback([this, slider](float v) {
+            slider->setValue(v);
+            bool wasRunning = m_simActive;
+            stop();
+            m_simulator.initializeSystem();
+            update();
+            if (wasRunning) start();
+        });
+
+
 
         Button* b = new Button(m_constraint_window, "Update");
         b->setCallback([this]() {
