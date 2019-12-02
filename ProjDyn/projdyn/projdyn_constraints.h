@@ -341,7 +341,18 @@ namespace ProjDyn {
             if (didCorrect) std::cout << "Fixed!" << std::endl;
         }
 
+		void updateAttributeTemp(const Vector& temperatures) {
+			Scalar temperature = 1 / 4.0 * (temperatures[m_vertex_indices[0]] +
+				                            temperatures[m_vertex_indices[1]] +
+				                            temperatures[m_vertex_indices[2]] +
+				                            temperatures[m_vertex_indices[3]]);
+			m_strain_freedom = 0.01 * temperature;
+		}
+
         virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {
+			// Use current temperature to define a different m_strain_freedom for every tetrahedron
+			updateAttributeTemp(temperatures);
+
             // Compute deformation gradient, clamp its singular values and output
             // corrected deformation gradient as the projection
 
@@ -571,8 +582,8 @@ namespace ProjDyn {
 			
 			// Low temperature implies shrinking (curvature increases)
 			// High temperature implies inflation (curvature decreases)
-			m_rest_mean_curv *= 1 + 0.01 * (temperature / 100.0);
-			m_rest_mean_curv_vec *= 1 + 0.01 * (temperature / 100.0);
+			m_rest_mean_curv *= 1 + 0.001 * clamp(0.5 - temperature / 100.0, -0.5, 0.0);
+			m_rest_mean_curv_vec *= 1 + 0.001 * clamp(0.5 - temperature / 100.0, -0.5, 0.0);
 		}
 
         virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {
