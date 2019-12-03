@@ -351,7 +351,7 @@ namespace ProjDyn {
 
         virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {
 			// Use current temperature to define a different m_strain_freedom for every tetrahedron
-			updateAttributeTemp(temperatures);
+			// updateAttributeTemp(temperatures);
 
             // Compute deformation gradient, clamp its singular values and output
             // corrected deformation gradient as the projection
@@ -563,8 +563,13 @@ namespace ProjDyn {
                 meanCurvatureVector += (positions.row(m_vertex_indices[0]) - positions.row(e.v2)) * cotanWeights(nb);
                 nb++;
             }
+			// These values are the reference one used in the constraint.
+			// They will be updated depending on temperature at every iteration
             m_rest_mean_curv_vec = meanCurvatureVector;
             m_rest_mean_curv = meanCurvatureVector.norm();
+			// These original values are used for computing the temperature dependent refernce values
+			m_original_rest_mean_curv_vec = m_rest_mean_curv_vec;
+			m_original_rest_mean_curv = m_rest_mean_curv;
 
             // Compute and store the dot product of the mean curvature vector with the
             // normal.
@@ -582,8 +587,8 @@ namespace ProjDyn {
 			
 			// Low temperature implies shrinking (curvature increases)
 			// High temperature implies inflation (curvature decreases)
-			m_rest_mean_curv *= 1 + 0.001 * clamp(0.5 - temperature / 100.0, -0.5, 0.0);
-			m_rest_mean_curv_vec *= 1 + 0.001 * clamp(0.5 - temperature / 100.0, -0.5, 0.0);
+			m_rest_mean_curv = m_original_rest_mean_curv * (1 - 0.1 * temperature / 100.0);
+			m_rest_mean_curv_vec = m_original_rest_mean_curv_vec * (1 - 0.1 * temperature / 100.0);
 		}
 
         virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {
@@ -636,7 +641,9 @@ namespace ProjDyn {
         Vector m_cotan_weights;
         Scalar m_dot_with_normal;
         Scalar m_rest_mean_curv;
+		Scalar m_original_rest_mean_curv;
         Eigen::Matrix<Scalar, 1, 3> m_rest_mean_curv_vec;
+		Eigen::Matrix<Scalar, 1, 3> m_original_rest_mean_curv_vec;
         Triangles m_triangles;
         virtual std::vector<Triplet> getTriplets(Index currentRow) override {
             // For bending constraints, the selection matrix computes the current mean curvature
