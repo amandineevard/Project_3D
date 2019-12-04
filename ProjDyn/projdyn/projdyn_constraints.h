@@ -447,6 +447,9 @@ namespace ProjDyn {
 				                          temperatures[m_vertex_indices[1]] + 
 				                          temperatures[m_vertex_indices[2]]);
 			m_strain_freedom = 0.01 * temperature;
+			m_expansion_strain_freedom = clamp(0.1 * (50.0 - temperature), 0, 50.0);
+			m_shrinkage_strain_freedom = clamp(0.1 * (-50.0 + temperature), 0, 50.0);
+			m_forced_strain = 0.005 * (50.0 - temperature);
 		}
 
         virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {
@@ -471,8 +474,12 @@ namespace ProjDyn {
             Eigen::JacobiSVD<Eigen::Matrix<Scalar, 2, 2>> svd(F, Eigen::ComputeFullU | Eigen::ComputeFullV);
             Vector2 S = svd.singularValues();
             // Clamp singular values
-            S(0) = clamp(S(0), 1. - m_strain_freedom, 1. + m_strain_freedom);
-            S(1) = clamp(S(1), 1. - m_strain_freedom, 1. + m_strain_freedom);
+            //S(0) = clamp(S(0), 1. - m_strain_freedom, 1. + m_strain_freedom);
+            //S(1) = clamp(S(1), 1. - m_strain_freedom, 1. + m_strain_freedom);
+			// S(0) = clamp(S(0), 1. - m_shrinkage_strain_freedom, 1. + m_expansion_strain_freedom);
+			// S(1) = clamp(S(1), 1. - m_shrinkage_strain_freedom, 1. + m_expansion_strain_freedom);
+			S(0) = 1. + m_forced_strain;
+			S(1) = 1. + m_forced_strain;
             // Compute clamped deformation gradient
             F = svd.matrixU() * S.asDiagonal() * svd.matrixV().transpose();
 
@@ -488,6 +495,9 @@ namespace ProjDyn {
     protected:
         Eigen::Matrix<Scalar, 2, 2> m_rest_edges_inv;
         Scalar m_strain_freedom;
+		Scalar m_expansion_strain_freedom;
+		Scalar m_shrinkage_strain_freedom;
+		Scalar m_forced_strain;
         virtual std::vector<Triplet> getTriplets(Index currentRow) override {
             std::vector<Triplet> triplets;
 
@@ -587,8 +597,8 @@ namespace ProjDyn {
 			
 			// Low temperature implies shrinking (curvature increases)
 			// High temperature implies inflation (curvature decreases)
-			m_rest_mean_curv = m_original_rest_mean_curv * (1 - 0.1 * temperature / 100.0);
-			m_rest_mean_curv_vec = m_original_rest_mean_curv_vec * (1 - 0.1 * temperature / 100.0);
+			m_rest_mean_curv = m_original_rest_mean_curv * (1 - 1 * temperature / 100.0);
+			m_rest_mean_curv_vec = m_original_rest_mean_curv_vec * (1 - 1 * temperature / 100.0);
 		}
 
         virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {

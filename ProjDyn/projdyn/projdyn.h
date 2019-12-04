@@ -231,7 +231,8 @@ namespace ProjDyn {
 
 			// ------------------------------------
 			// TODO: Update temperature here
-			updateTemperatureHeight(600, 100);
+			updateTemperatureHeight(1000, 100);
+			// updateTemperatureUniform(10, 200);
 			// updateTemperatureDiffusion(100);
 
 			// ------------------------------------
