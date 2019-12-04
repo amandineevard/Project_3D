@@ -109,13 +109,13 @@ public:
         m_numVerts = numVerts;
         m_simulator = simulator;
         double tm = simulator->getTemperatureModel();
-        if(tm == constant){
-            setValue(simulator->getTempCoefConstant());
-            setRange(std::pair<float, float>(0, 30));
+        if(tm == uniform){
+            setValue(simulator->getTempCoefUniform());
+            setRange(std::pair<float, float>(0, 100));
         }
         if(tm == linear){
-            setValue(simulator->getTempCoefLinear());
-            setRange(std::pair<float, float>(0, 1000));
+            setValue(simulator->getTempCoefLinearBottom());
+            setRange(std::pair<float, float>(0, 200));
         }
        if(tm == diffusion){
            setValue(simulator->getTempCoefDiffusion());
@@ -134,12 +134,12 @@ public:
             m_textBox->setValue(ProjDyn::floatToString(v));
             //m_constraint->weight = vv;
             double tm = m_simulator->getTemperatureModel();
-            if(tm == constant){
-                m_simulator->setTempCoefConstant(vv);
+            if(tm == uniform){
+                m_simulator->setTempCoefUniform(vv);
                 m_textBox->setValue(ProjDyn::floatToString(v));
             }
             if(tm == linear){
-                m_simulator->setTempCoefLinear(vv);
+                m_simulator->setTempCoefLinearBottom(vv);
                 m_textBox->setValue(ProjDyn::floatToString(v));
             }
             if(tm == diffusion){
@@ -153,11 +153,11 @@ public:
             float v = std::stof(val);
             float vv = v;
             double tm = m_simulator->getTemperatureModel();
-            if(tm == constant){
-                m_simulator->setTempCoefConstant(vv);
+            if(tm == uniform){
+                m_simulator->setTempCoefUniform(vv);
             }
             if(tm == linear){
-                m_simulator->setTempCoefLinear(vv);
+                m_simulator->setTempCoefLinearBottom(vv);
             }
             if(tm == diffusion){
                 m_simulator->setTempCoefDiffusion(vv);

@@ -20,7 +20,7 @@
 #include <iostream>
 
 constexpr double PROJDYN_INITIAL_STIFFNESS = 100.;
-enum temperature_model { constant, diffusion, linear };
+enum temperature_model { none, uniform, diffusion, linear };
 
 namespace ProjDyn {
 	typedef Eigen::SimplicialLDLT<SparseMatrix> SparseSolver;
@@ -86,6 +86,11 @@ namespace ProjDyn {
                 std::cout << "WARNING: Could not initialize: no constraints." << std::endl;
                 return false;
             }
+
+			if (m_temperature_model == none) {
+				std::cout << "WARNING: Could not initialize: no temperature model chosen." << std::endl;
+				return false;
+			}
 
             // Collect entries of constraint matrix
             std::vector<Triplet> con_triplets, con_triplets_t;
@@ -232,49 +237,52 @@ namespace ProjDyn {
 
 			// ------------------------------------
 			// Update temperature here
-			if(m_tmp_model == linear){
-				updateTemperatureHeight(100);
-			}else if (m_tmp_model == diffusion){
+			if(m_temperature_model == linear){
+				updateTemperatureHeight();
+			}
+			else if (m_temperature_model == diffusion) {
 				updateTemperatureDiffusion(100);
-			}else{
-				updateTemperatureUniform(100);
+			}
+			else if (m_temperature_model == uniform) {
+				updateTemperatureUniform();
+			}
+			else {
+				std::cerr << "No temperature model chosen!";
 			}
 			// ------------------------------------
             return true;
         }
 
 		// Function to update temperature uniformly on the mesh
-		void updateTemperatureUniform( Scalar maxTemp) {
-			Vector addTemp;
-			addTemp.resize(m_num_verts);
-			addTemp.setOnes();
-			addTemp *= m_temp_coef_constant * m_time_step;
-			m_temperatures += addTemp;
-			if (m_temperatures[0] >= maxTemp) {
-				m_temperatures.setOnes();
-				m_temperatures *= maxTemp;
-			}
+		void updateTemperatureUniform() {
+			Vector newTemp;
+			newTemp.resize(m_num_verts);
+			newTemp.setOnes();
+			newTemp *= m_uniform_temperature;
+			m_temperatures = newTemp;
 		}
 
-		// Function to update temperature according to heigth
-		void updateTemperatureHeight(Scalar maxTemp) {
-			Vector groundTemp;
-			groundTemp.resize(m_num_verts);
-			groundTemp.setOnes();
-			groundTemp *= maxTemp;
-
-			Vector groundHeight;
-			groundHeight.resize(m_num_verts);
-			groundHeight.setOnes();
-			groundHeight *= m_floorHeight;
-
-			m_temperatures = groundTemp - m_temp_coef_linear * (m_positions.col(1)-groundHeight);
+		// Function to update temperature according to height
+		void updateTemperatureHeight() {
+			// TODO: improve implementation (add also m_linear_top_temperature control and get rid of meaningless coef)
+			Scalar coef = 5;
+			Scalar slope = (m_linear_bottom_temperature - m_linear_top_temperature) / m_floorHeight * coef;
+			Scalar intercept = m_linear_bottom_temperature - slope * m_floorHeight;
+			Vector interceptTemp;
+			interceptTemp.resize(m_num_verts);
+			interceptTemp.setOnes();
+			interceptTemp *= intercept;
+			m_temperatures = interceptTemp +  slope * m_positions.col(1);
 
 			for (int i = 0; i < m_num_verts; i++) {
 				if (m_temperatures[i] < 0) {
 					m_temperatures[i] = 0;
 				}
+				else if (m_temperatures[i] > m_linear_bottom_temperature) {
+					m_temperatures[i] = m_linear_bottom_temperature;
+				}
 			}
+
 		}
 
 		// Function to update temperature according to heigth
@@ -354,27 +362,35 @@ namespace ProjDyn {
 		}
 
 		const temperature_model getTemperatureModel() const{
-			return m_tmp_model;
+			return m_temperature_model;
 		}
 
 		void setTemperatureModel(temperature_model t){
-			m_tmp_model = t;
+			m_temperature_model = t;
 		}
 
-		const double getTempCoefConstant() const{
-			return m_temp_coef_constant;
+		const double getTempCoefUniform() const{
+			return m_uniform_temperature;
 		}
 
-		void setTempCoefConstant(double t){
-			m_temp_coef_constant = t;
+		void setTempCoefUniform(double t){
+			m_uniform_temperature = t;
 		}
 
-		const double getTempCoefLinear() const{
-			return m_temp_coef_linear;
+		const double getTempCoefLinearTop() const{
+			return m_linear_top_temperature;
 		}
 
-		void setTempCoefLinear(double t){
-			m_temp_coef_linear = t;
+		const double getTempCoefLinearBottom() const {
+			return m_linear_bottom_temperature;
+		}
+
+		void setTempCoefLinearTop(double t){
+			m_linear_top_temperature = t;
+		}
+
+		void setTempCoefLinearBottom(double t) {
+			m_linear_bottom_temperature = t;
 		}
 
 		const double getTempCoefDiffusion() const{
@@ -558,10 +574,11 @@ namespace ProjDyn {
 		std::map<int, std::vector<int>> m_neighbors;
 
 		//temperature model:
-		temperature_model m_tmp_model;
-		Scalar m_temp_coef_diffusion = 1.0;
-		Scalar m_temp_coef_constant = 10.0;
-		Scalar m_temp_coef_linear = 600.0;
+		temperature_model m_temperature_model = none;
+		Scalar m_temp_coef_diffusion;
+		Scalar m_uniform_temperature;
+		Scalar m_linear_top_temperature = 0; // with linear increase the reference value is always 0 (TODO: generalize)
+		Scalar m_linear_bottom_temperature;
 
 		// Internal quantities during simulation
 		Positions m_velocities, m_momentum, m_old_positions;

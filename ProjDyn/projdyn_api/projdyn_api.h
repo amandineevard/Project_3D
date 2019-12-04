@@ -96,8 +96,8 @@ public:
         d->setCallback([this, popupBtnTemp]() {
             bool was_active = m_simActive;
             stop();
-            m_simulator.setTemperatureModel(constant);
-            m_simulator.setTempCoefConstant(10.0);
+            m_simulator.setTemperatureModel(uniform);
+            m_simulator.setTempCoefUniform(0.0);
             updateConstraintsGUI();
             if (was_active) {
                 start();
@@ -109,7 +109,8 @@ public:
             bool was_active = m_simActive;
             stop();
             m_simulator.setTemperatureModel(linear);
-            m_simulator.setTempCoefLinear(600.0);
+            m_simulator.setTempCoefLinearBottom(100.0);
+			m_simulator.setTempCoefLinearTop(0.0);
             updateConstraintsGUI();
             if (was_active) {
                 start();
@@ -213,6 +214,8 @@ public:
             initConstraintsGUI();
         }
 
+		initTemperatureGUI();
+
         m_viewer->performLayout();
     }
 
@@ -223,6 +226,14 @@ public:
         m_constraint_window->setPosition(Vector2i(700, 25));
         m_constraint_window->setLayout(new GroupLayout());
     }
+
+	// Add an (empty) GUI window in which temperature 
+	// gets a slider which controls a weight multiplier.
+	void initTemperatureGUI() {
+		m_temperature_window = new Window(m_viewer, "Temperature");
+		m_temperature_window->setPosition(Vector2i(700, 520));
+		m_temperature_window->setLayout(new GroupLayout());
+	}
 
     // Each time the constraints of the simulation change, this gets called
     // to create one slider (and textboxes) for each constraint group.
@@ -253,15 +264,23 @@ public:
                 if (wasRunning) start();
             });
         }
-        //add temperature model coef slider:
-        temperature_model  tm = m_simulator.getTemperatureModel();
-        std::cout<< "temperature model: "<<tm <<" ";
+
+		// Clear all previous temperature controls
+		while (m_temperature_window->children().size() > 0) {
+			m_temperature_window->removeChild(0);
+		}
+
+        // Add temperature model coefficient slider:
+        temperature_model tm = m_simulator.getTemperatureModel();
         std::string name = "";
-        if(tm == constant){name = "Temperature: constant";}
-        if(tm == linear){name = "Temperature: linear";}
-        if(tm== diffusion){name = "Temperature: diffusion";}
-        new Label(m_constraint_window, name, "sans-bold");
-        Widget* panel = new Widget(m_constraint_window);
+        if(tm == uniform)
+			{name = "Uniform";}
+        else if(tm == linear)
+			{name = "Linear";}
+        else if(tm == diffusion)
+			{name = "Diffusion";}
+        new Label(m_temperature_window, name, "sans-bold");
+        Widget* panel = new Widget(m_temperature_window);
         panel->setLayout(new BoxLayout(nanogui::Orientation::Horizontal, nanogui::Alignment::Middle, 0, 10));
 
         // Add a sliderand set defaults
@@ -696,6 +715,7 @@ private:
     bool m_simActive = false;
     std::vector<ProjDyn::VertexStar> m_vertexStars;
     Window* m_constraint_window = nullptr;
+	Window* m_temperature_window = nullptr;
     Viewer* m_viewer;
     Button* m_startButton = nullptr;
     Button* m_stopButton = nullptr;
