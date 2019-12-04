@@ -110,9 +110,8 @@ public:
         m_simulator = simulator;
         double tm = simulator->getTemperatureModel();
         if(tm == constant){
-            std::cout<< simulator->getTempCoefConstant() <<"jjj";
-            setRange(std::pair<float, float>(0, 10));
             setValue(simulator->getTempCoefConstant());
+            setRange(std::pair<float, float>(0, 30));
         }
         if(tm == linear){
             setValue(simulator->getTempCoefLinear());
@@ -137,14 +136,16 @@ public:
             double tm = m_simulator->getTemperatureModel();
             if(tm == constant){
                 m_simulator->setTempCoefConstant(vv);
+                m_textBox->setValue(ProjDyn::floatToString(v));
             }
             if(tm == linear){
                 m_simulator->setTempCoefLinear(vv);
+                m_textBox->setValue(ProjDyn::floatToString(v));
             }
             if(tm == diffusion){
                 m_simulator->setTempCoefDiffusion(vv);
+                m_textBox->setValue(ProjDyn::floatToString(v));
             }
-
         });
 
         m_textBox->setEditable(true);

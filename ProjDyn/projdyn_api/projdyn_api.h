@@ -88,7 +88,7 @@ public:
             setMesh(true);
         });
 
-        PopupButton* popupBtnTemp = new PopupButton(pd_win, "Set Temperature model");
+        PopupButton* popupBtnTemp = new PopupButton(pd_win, "Temperature model");
         Popup* popupTemp = popupBtnTemp->popup();
         popupTemp->setLayout(new GroupLayout());
 
@@ -97,6 +97,7 @@ public:
             bool was_active = m_simActive;
             stop();
             m_simulator.setTemperatureModel(constant);
+            m_simulator.setTempCoefConstant(10.0);
             updateConstraintsGUI();
             if (was_active) {
                 start();
@@ -108,6 +109,7 @@ public:
             bool was_active = m_simActive;
             stop();
             m_simulator.setTemperatureModel(linear);
+            m_simulator.setTempCoefLinear(600.0);
             updateConstraintsGUI();
             if (was_active) {
                 start();
@@ -119,6 +121,7 @@ public:
             bool was_active = m_simActive;
             stop();
             m_simulator.setTemperatureModel(diffusion);
+            m_simulator.setTempCoefDiffusion(1.0);
             updateConstraintsGUI();
             if (was_active) {
                 start();
@@ -252,10 +255,11 @@ public:
         }
         //add temperature model coef slider:
         temperature_model  tm = m_simulator.getTemperatureModel();
+        std::cout<< "temperature model: "<<tm <<" ";
         std::string name = "";
-        if(tm == constant){name = "constant";}
-        if(tm == linear){name = "linear";}
-        if(tm== diffusion){name = "diffusion";}
+        if(tm == constant){name = "Temperature: constant";}
+        if(tm == linear){name = "Temperature: linear";}
+        if(tm== diffusion){name = "Temperature: diffusion";}
         new Label(m_constraint_window, name, "sans-bold");
         Widget* panel = new Widget(m_constraint_window);
         panel->setLayout(new BoxLayout(nanogui::Orientation::Horizontal, nanogui::Alignment::Middle, 0, 10));

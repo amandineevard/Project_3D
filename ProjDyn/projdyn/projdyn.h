@@ -160,12 +160,6 @@ namespace ProjDyn {
             }
             m_neighbors = dictNeigbhors;
 
-            //init temperature model:
-			m_tmp_model = constant;
-			m_temp_coef_diffusion = 1.0;
-			m_temp_coef_constant = 10.0;
-			m_temp_coef_linear = 600.0;
-
 
             // With this, the system is initialized
             m_system_init = true;
@@ -565,9 +559,9 @@ namespace ProjDyn {
 
 		//temperature model:
 		temperature_model m_tmp_model;
-		Scalar m_temp_coef_diffusion;
-		Scalar m_temp_coef_constant;
-		Scalar m_temp_coef_linear;
+		Scalar m_temp_coef_diffusion = 1.0;
+		Scalar m_temp_coef_constant = 10.0;
+		Scalar m_temp_coef_linear = 600.0;
 
 		// Internal quantities during simulation
 		Positions m_velocities, m_momentum, m_old_positions;
