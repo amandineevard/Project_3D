@@ -108,6 +108,7 @@ public:
         m_viewer = viewer;
         m_numVerts = numVerts;
         m_simulator = simulator;
+
         double tm = simulator->getTemperatureModel();
         if(tm == uniform){
             setValue(simulator->getTempCoefUniform());
@@ -214,4 +215,89 @@ private:
     Eigen::RowVectorXi m_storedStatus;
     TextBox* m_textBox;
     ProjDyn::Simulator* m_simulator;
+};
+
+class ConstraintPropertySlider : public Slider {
+public:
+	ConstraintPropertySlider(Widget* parent, Viewer* viewer, ProjDyn::Index numVerts, ProjDyn::ConstraintGroupPtr constraint)
+		: Slider(parent) {
+		m_constraint = constraint;
+		m_viewer = viewer;
+		m_numVerts = numVerts;
+
+		// TODO: are initial value and range really general or some adaptation to different constraints is needed?
+		setValue(0);
+		setRange(std::pair<float, float>(0, 2));
+		setFixedWidth(80);
+
+		// Add a textbox and set defaults
+		m_textBox = new TextBox(parent);
+		m_textBox->setFixedSize(Vector2i(80, 25));
+		m_textBox->setValue(ProjDyn::floatToString(value()));
+
+		setCallback([this](float v) {
+			float vv = std::pow(10000, v - 1);
+			m_textBox->setValue(ProjDyn::floatToString(v));
+			for (auto& constraint : m_constraint->constraints) {
+				constraint->setTemperatureCoef(vv);
+			}
+			});
+
+		m_textBox->setEditable(true);
+		m_textBox->setCallback([this](const std::string& val) -> bool {
+			float v = std::stof(val);
+			float vv = std::pow(10000, v - 1);
+			for (auto& constraint : m_constraint->constraints) {
+				constraint->setTemperatureCoef(vv);
+			}
+			this->setValue(v);
+			this->finalCallback()(v);
+			return true;
+			});
+
+	}
+
+	virtual bool mouseEnterEvent(const Vector2i& p, bool enter) override {
+		if (enter) {
+			m_entered = true;
+			m_storedStatus = m_viewer->getVertexStatus();
+			Eigen::RowVectorXi tempStatus;
+			tempStatus.setZero(m_numVerts);
+			for (auto c : m_constraint->constraints) {
+				for (ProjDyn::Index ind : c->getIndices()) {
+					if (ind < m_numVerts) tempStatus(0, ind) = 1;
+				}
+			}
+			m_viewer->updateVertexStatus(tempStatus);
+			return true;
+		}
+		else if (m_entered) {
+			m_entered = false;
+			m_viewer->updateVertexStatus(m_storedStatus);
+		}
+		return false;
+	}
+
+	// This needs to be overridden since the event of leaving the area of the slider with the mouse
+	// while clicking does not trigger the mouseEnterEvent, i.e. the vertex status is never
+	// restored
+	virtual bool mouseButtonEvent(const Vector2i& p, int button, bool down, int modifiers) override
+	{
+		Slider::mouseButtonEvent(p, button, down, modifiers);
+		// When releasing the button and we "entered" this constraint before, restore the original
+		// vertex status.
+		if (!down && m_entered) {
+			m_entered = false;
+			m_viewer->updateVertexStatus(m_storedStatus);
+		}
+		return mEnabled;
+	}
+
+private:
+	bool m_entered = false;
+	ProjDyn::ConstraintGroupPtr m_constraint;
+	Viewer* m_viewer;
+	ProjDyn::Index m_numVerts;
+	Eigen::RowVectorXi m_storedStatus;
+	TextBox* m_textBox;
 };

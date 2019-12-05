@@ -99,6 +99,7 @@ public:
             m_simulator.setTemperatureModel(uniform);
             m_simulator.setTempCoefUniform(0.0);
             updateConstraintsGUI();
+			updateTemperatureGUI();
             if (was_active) {
                 start();
             }
@@ -112,6 +113,7 @@ public:
             m_simulator.setTempCoefLinearBottom(100.0);
 			m_simulator.setTempCoefLinearTop(0.0);
             updateConstraintsGUI();
+			updateTemperatureGUI();
             if (was_active) {
                 start();
             }
@@ -124,6 +126,7 @@ public:
             m_simulator.setTemperatureModel(diffusion);
             m_simulator.setTempCoefDiffusion(1.0);
             updateConstraintsGUI();
+			updateTemperatureGUI();
             if (was_active) {
                 start();
             }
@@ -143,6 +146,7 @@ public:
             m_viewer->setFloorHeight(m_simulator.getFloorHeight());
             m_viewer->showFloor(true);
             updateConstraintsGUI();
+			updateTemperatureGUI();
             if (was_active) {
                 start();
             }
@@ -201,6 +205,7 @@ public:
             m_viewer->showFloor(false);
             uploadPositions();
             updateConstraintsGUI();
+			updateTemperatureGUI();
         });
 
         Label* iterations_label = new Label(pd_win, "Num Loc-Glob Its: ");
@@ -223,7 +228,7 @@ public:
     // this API gets a slider which controls a weight multiplier.
     void initConstraintsGUI() {
         m_constraint_window = new Window(m_viewer, "Constraints");
-        m_constraint_window->setPosition(Vector2i(700, 25));
+        m_constraint_window->setPosition(Vector2i(780, 25));
         m_constraint_window->setLayout(new GroupLayout());
     }
 
@@ -231,7 +236,7 @@ public:
 	// gets a slider which controls a weight multiplier.
 	void initTemperatureGUI() {
 		m_temperature_window = new Window(m_viewer, "Temperature");
-		m_temperature_window->setPosition(Vector2i(700, 520));
+		m_temperature_window->setPosition(Vector2i(780, 360));
 		m_temperature_window->setLayout(new GroupLayout());
 	}
 
@@ -265,39 +270,6 @@ public:
             });
         }
 
-		// Clear all previous temperature controls
-		while (m_temperature_window->children().size() > 0) {
-			m_temperature_window->removeChild(0);
-		}
-
-        // Add temperature model coefficient slider:
-        temperature_model tm = m_simulator.getTemperatureModel();
-        std::string name = "";
-        if(tm == uniform)
-			{name = "Uniform";}
-        else if(tm == linear)
-			{name = "Linear";}
-        else if(tm == diffusion)
-			{name = "Diffusion";}
-        new Label(m_temperature_window, name, "sans-bold");
-        Widget* panel = new Widget(m_temperature_window);
-        panel->setLayout(new BoxLayout(nanogui::Orientation::Horizontal, nanogui::Alignment::Middle, 0, 10));
-
-        // Add a sliderand set defaults
-        TemperatureSlider* slider = new TemperatureSlider(panel, m_viewer, m_simulator.getNumVerts(), &m_simulator);
-
-        // Re-initialize system and update positions once the user lets go of the slider
-        slider->setFinalCallback([this, slider](float v) {
-            slider->setValue(v);
-            bool wasRunning = m_simActive;
-            stop();
-            m_simulator.initializeSystem();
-            update();
-            if (wasRunning) start();
-        });
-
-
-
         Button* b = new Button(m_constraint_window, "Update");
         b->setCallback([this]() {
             update();
@@ -305,6 +277,71 @@ public:
 
         m_viewer->performLayout();
     }
+
+	// Each time the temperature model or the constraints of the simulation change, 
+	// this gets called to create one slider (and textboxes) for the 
+	// temperature model and for each temperature dependent constraint group.
+	void updateTemperatureGUI() {
+		if (!m_temperature_window) return;
+
+		// Clear all previous temperature controls
+		while (m_temperature_window->children().size() > 0) {
+			m_temperature_window->removeChild(0);
+		}
+
+		// Add temperature model coefficient slider:
+		temperature_model tm = m_simulator.getTemperatureModel();
+		std::string name = "";
+		if (tm == uniform){
+			name = "Uniform temperature";
+		}
+		else if (tm == linear){
+			name = "Floor temperature";
+		}
+		else if (tm == diffusion){
+			name = "Diffusion coefficient";
+		}
+		new Label(m_temperature_window, name, "sans-bold");
+		Widget* panel = new Widget(m_temperature_window);
+		panel->setLayout(new BoxLayout(nanogui::Orientation::Horizontal, nanogui::Alignment::Middle, 0, 10));
+		TemperatureSlider* slider = new TemperatureSlider(panel, m_viewer, m_simulator.getNumVerts(), &m_simulator);
+
+		// Re-initialize system and update positions once the user lets go of the slider
+		slider->setFinalCallback([this, slider](float v) {
+			slider->setValue(v);
+			bool wasRunning = m_simActive;
+			stop();
+			m_simulator.initializeSystem();
+			update();
+			if (wasRunning) start();
+			});
+
+		// For each constraint group add controls over temperature dependent properties
+		for (const auto& g : m_simulator.getConstraintGroups()) {
+
+			// Check if the constraint group is temperature dependent (just check the first constraint, they are all of the same type)
+			if((g->constraints)[0]->isTemperatureDependent()){
+
+				new Label(m_temperature_window, g->name, "sans-bold");
+				Widget* panel = new Widget(m_temperature_window);
+				panel->setLayout(new BoxLayout(nanogui::Orientation::Horizontal, nanogui::Alignment::Middle, 0, 10));
+				ConstraintPropertySlider* slider = new ConstraintPropertySlider(panel, m_viewer, m_simulator.getNumVerts(), g);
+
+				// Re-initialize system and update positions once the user lets go of the slider
+				slider->setFinalCallback([this, slider](float v) {
+					slider->setValue(v);
+					bool wasRunning = m_simActive;
+					stop();
+					m_simulator.initializeSystem();
+					update();
+					if (wasRunning) start();
+					});
+
+			}
+		}
+
+		m_viewer->performLayout();
+	}
 
     // Called when a new mesh is set in the viewer.
     // We convert the Surface_mesh vertices and triangles into Eigen
@@ -363,6 +400,7 @@ public:
         }
 
         updateConstraintsGUI();
+		updateTemperatureGUI();
         m_viewer->showFloor(false);
 
         return true;
@@ -489,7 +527,7 @@ public:
 		vertex_color.setZero();
 		for (int i = 0; i < n_vertices; i++) vertex_color.col(i) = Vector3f(temperatures[i]/100, 0.2, 1.0 - temperatures[i] / 100);
 		m_viewer->changeColor(vertex_color);
-		std::cout << "Temperature: " << temperatures[0] << std::endl;
+		std::cout << "Mean temperature: " << temperatures.mean() << std::endl;
 	}
 
     // Set external forces to point into downwards y direction with a certain magnitude
@@ -521,24 +559,29 @@ public:
     void addConstraints(const std::vector<ProjDyn::ConstraintPtr>& constraints) {
         m_simulator.addConstraints(constraints);
         updateConstraintsGUI();
+		updateTemperatureGUI();
     }
     void addConstraints(ProjDyn::ConstraintGroupPtr constraints) {
         m_simulator.addConstraints(constraints);
         updateConstraintsGUI();
+		updateTemperatureGUI();
     }
     void addConstraint(const ProjDyn::ConstraintPtr& constraint) {
         m_simulator.addConstraint(constraint);
         updateConstraintsGUI();
+		updateTemperatureGUI();
     }
 
     // Remove a constraint group from the simulator, either by value or by name.
     void removeConstraints(ProjDyn::ConstraintGroupPtr constraints) {
         m_simulator.removeConstraints(constraints);
         updateConstraintsGUI();
+		updateTemperatureGUI();
     }
     void removeConstraints(std::string constraint_name) {
         m_simulator.removeConstraints(constraint_name);
         updateConstraintsGUI();
+		updateTemperatureGUI();
     }
 
     // Remove all constraints from the simulation.

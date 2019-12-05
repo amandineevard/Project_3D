@@ -108,6 +108,14 @@ namespace ProjDyn {
             NOTE: this change will only affect the simulation once initializeSystem() is called again. */
         void setWeightMultiplier(Scalar mult) { m_weight_mult = mult; }
 
+		/** Returns the temperature depenent coefficient of the constraint */
+		Scalar getTemperatureCoef() const { return temperature_coef; }
+
+		/** Changes the temperature depenent coefficient of the constraint */
+		void setTemperatureCoef(Scalar coef) { temperature_coef = coef; }
+
+		bool isTemperatureDependent() { return is_temperature_dependent; }
+
         virtual ConstraintPtr copy() = 0;
 
     protected:
@@ -132,6 +140,14 @@ namespace ProjDyn {
 
         /** Location of this constraint in the linear system. */
         Index m_constraint_id = 0;
+
+		/** Temperature dependent coefficient.
+		It has different meanings depending on the child class. */
+		Scalar temperature_coef = 0;
+
+		/** Boolean variable that states if the constraint can be made temperature dependent.
+		Useful for adding to the Temperature box in the GUI only actually meaningful sliders. */
+		bool is_temperature_dependent = false;
     };
 
     
@@ -155,6 +171,8 @@ namespace ProjDyn {
             :
             Constraint(edge_vertices, weight)
         {
+			is_temperature_dependent = true;
+
             // Make sure there are at most two vertices in the edge
             assert(m_vertex_indices.size() == 2);
             // Compute rest edge length
@@ -164,7 +182,7 @@ namespace ProjDyn {
 
 		void updateAttributeTemp(const Vector& temperatures) {
 			Scalar temperature = 0.5 * (temperatures[m_vertex_indices[0]] + temperatures[m_vertex_indices[1]]);
-			m_rest_length = m_initial_rest_length + (m_initial_rest_length * 0.1 * temperature);
+			m_rest_length = m_initial_rest_length + (m_initial_rest_length * temperature_coef * temperature);
 		}
 
         virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {
@@ -184,8 +202,8 @@ namespace ProjDyn {
             return std::make_shared<EdgeSpringConstraint>(*this);
         }
     protected:
-        Scalar m_rest_length = 0;
-		Scalar m_initial_rest_length = 0;
+        Scalar m_rest_length;
+		Scalar m_initial_rest_length;
 
         virtual std::vector<Triplet> getTriplets(Index currentRow) override {
             std::vector<Triplet> triplets;
@@ -308,6 +326,8 @@ namespace ProjDyn {
             :
             Constraint(tetVertices, weight)
         {
+			is_temperature_dependent = true;
+
             m_strain_freedom = strain_freedom;
 
             // 3d edges of tet
@@ -346,7 +366,7 @@ namespace ProjDyn {
 				                            temperatures[m_vertex_indices[1]] +
 				                            temperatures[m_vertex_indices[2]] +
 				                            temperatures[m_vertex_indices[3]]);
-			m_strain_freedom = 0.01 * temperature;
+			m_strain_freedom = temperature_coef * temperature;
 		}
 
         virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {
@@ -424,6 +444,8 @@ namespace ProjDyn {
             :
             Constraint(triVertices, weight)
         {
+			is_temperature_dependent = true;
+
             m_strain_freedom = 0.;
 
             Eigen::Matrix<Scalar, 3, 2> edges, P;
@@ -446,7 +468,7 @@ namespace ProjDyn {
 			Scalar temperature = 1/3.0 * (temperatures[m_vertex_indices[0]] + 
 				                          temperatures[m_vertex_indices[1]] + 
 				                          temperatures[m_vertex_indices[2]]);
-			m_strain_freedom = 0.01 * temperature;
+			m_strain_freedom = temperature_coef * temperature;
 		}
 
         virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {
@@ -513,6 +535,8 @@ namespace ProjDyn {
             :
             Constraint(getStarIndices(vertexStar), weight)
         {
+			is_temperature_dependent = true;
+
             m_vertex_star = vertexStar;
 
             // Compute cotan weights and collect list of triangles in 1-ring
@@ -580,16 +604,15 @@ namespace ProjDyn {
 			// Temperature of the vertex already available
 			Scalar temperature = temperatures[m_vertex_indices[0]];
 			
-			// Low temperature implies shrinking (curvature increases)
-			// High temperature implies inflation (curvature decreases)
-			m_rest_mean_curv *= 1 + 0.001 * clamp(0.5 - temperature / 100.0, -0.5, 0.0);
-			m_rest_mean_curv_vec *= 1 + 0.001 * clamp(0.5 - temperature / 100.0, -0.5, 0.0);
+			// Low temperature implies shrinking (curvature decreases)
+			// High temperature implies inflation (curvature increases)
+			m_rest_mean_curv *= 1 + temperature_coef * clamp(0.5 - temperature / 100.0, -0.5, 0.0);
+			m_rest_mean_curv_vec *= 1 + temperature_coef * clamp(0.5 - temperature / 100.0, -0.5, 0.0);
 		}
 
         virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {
 			// Use current temperature to change the reference curvature value:
-			// high temperature -> inflation -> lower curvature
-			// low temperature  -> shrinking -> higher curvature
+			// TODO: interpret as minimal surface
 			updateAttributeTemp(temperatures);
 
             if (m_rest_mean_curv < 1e-12) {
