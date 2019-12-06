@@ -226,7 +226,7 @@ namespace ProjDyn {
 				std::cerr << "No temperature model chosen!";
 			}
 
-			//updateGravity();
+			updateGravity(); 
 
 			// ------------------------------------
             return true;

@@ -366,7 +366,7 @@ namespace ProjDyn {
 				                            temperatures[m_vertex_indices[1]] +
 				                            temperatures[m_vertex_indices[2]] +
 				                            temperatures[m_vertex_indices[3]]);
-			m_strain_freedom = temperature_coef * temperature;
+			m_strain_freedom = temperature_coef * (temperature - 50);
 		}
 
         virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {
