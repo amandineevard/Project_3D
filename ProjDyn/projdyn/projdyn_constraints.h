@@ -391,9 +391,12 @@ namespace ProjDyn {
             Scalar detV = svd.matrixV().determinant();
 
             // Clamp singular values
-            S(0) = clamp(S(0), 1. - m_strain_freedom, 1. + m_strain_freedom);
+            /*S(0) = clamp(S(0), 1. - m_strain_freedom, 1. + m_strain_freedom);
             S(1) = clamp(S(1), 1. - m_strain_freedom, 1. + m_strain_freedom);
-            S(2) = clamp(S(2), 1. - m_strain_freedom, 1. + m_strain_freedom);
+            S(2) = clamp(S(2), 1. - m_strain_freedom, 1. + m_strain_freedom);*/
+			S(0) = 1. + m_strain_freedom;
+			S(1) = 1. + m_strain_freedom;
+			S(2) = 1. + m_strain_freedom;
             // Reverse largest singular value if tet is inverted:
             if (detU * detV < 0.0f) S(2) = -S(2);
 
