@@ -468,7 +468,9 @@ namespace ProjDyn {
 			Scalar temperature = 1/3.0 * (temperatures[m_vertex_indices[0]] + 
 				                          temperatures[m_vertex_indices[1]] + 
 				                          temperatures[m_vertex_indices[2]]);
-			m_strain_freedom = temperature_coef * temperature;
+			// m_strain_freedom = temperature_coef * temperature;
+			m_forced_strain = temperature_coef * temperature;
+			// std::cout << temperature_coef << std::endl;
 		}
 
         virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {
@@ -493,8 +495,10 @@ namespace ProjDyn {
             Eigen::JacobiSVD<Eigen::Matrix<Scalar, 2, 2>> svd(F, Eigen::ComputeFullU | Eigen::ComputeFullV);
             Vector2 S = svd.singularValues();
             // Clamp singular values
-            S(0) = clamp(S(0), 1. - m_strain_freedom, 1. + m_strain_freedom);
-            S(1) = clamp(S(1), 1. - m_strain_freedom, 1. + m_strain_freedom);
+            /*S(0) = clamp(S(0), 1. - m_strain_freedom, 1. + m_strain_freedom);
+            S(1) = clamp(S(1), 1. - m_strain_freedom, 1. + m_strain_freedom);*/
+			S(0) = 1. + m_forced_strain;
+			S(1) = 1. + m_forced_strain;
             // Compute clamped deformation gradient
             F = svd.matrixU() * S.asDiagonal() * svd.matrixV().transpose();
 
@@ -510,6 +514,7 @@ namespace ProjDyn {
     protected:
         Eigen::Matrix<Scalar, 2, 2> m_rest_edges_inv;
         Scalar m_strain_freedom;
+		Scalar m_forced_strain;
         virtual std::vector<Triplet> getTriplets(Index currentRow) override {
             std::vector<Triplet> triplets;
 
@@ -589,6 +594,8 @@ namespace ProjDyn {
             }
             m_rest_mean_curv_vec = meanCurvatureVector;
             m_rest_mean_curv = meanCurvatureVector.norm();
+			m_original_rest_mean_curv_vec = m_rest_mean_curv_vec;
+			m_original_rest_mean_curv = m_rest_mean_curv;
 
             // Compute and store the dot product of the mean curvature vector with the
             // normal.
@@ -606,8 +613,8 @@ namespace ProjDyn {
 			
 			// Low temperature implies shrinking (curvature decreases)
 			// High temperature implies inflation (curvature increases)
-			m_rest_mean_curv *= 1 + temperature_coef * clamp(0.5 - temperature / 100.0, -0.5, 0.0);
-			m_rest_mean_curv_vec *= 1 + temperature_coef * clamp(0.5 - temperature / 100.0, -0.5, 0.0);
+			m_rest_mean_curv = m_original_rest_mean_curv * (1 + temperature_coef * clamp(0.5 - temperature / 100.0, -0.5, 0.0));
+			m_rest_mean_curv_vec = m_original_rest_mean_curv_vec * (1 + temperature_coef * clamp(0.5 - temperature / 100.0, -0.5, 0.0));
 		}
 
         virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {
@@ -659,7 +666,10 @@ namespace ProjDyn {
         Vector m_cotan_weights;
         Scalar m_dot_with_normal;
         Scalar m_rest_mean_curv;
+		Scalar m_original_rest_mean_curv;
         Eigen::Matrix<Scalar, 1, 3> m_rest_mean_curv_vec;
+		Eigen::Matrix<Scalar, 1, 3> m_original_rest_mean_curv_vec;
+		
         Triangles m_triangles;
         virtual std::vector<Triplet> getTriplets(Index currentRow) override {
             // For bending constraints, the selection matrix computes the current mean curvature

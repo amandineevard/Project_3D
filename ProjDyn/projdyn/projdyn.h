@@ -265,7 +265,7 @@ namespace ProjDyn {
 		// Function to update temperature according to height
 		void updateTemperatureHeight() {
 			// TODO: improve implementation (add also m_linear_top_temperature control and get rid of meaningless coef)
-			Scalar coef = 5;
+			Scalar coef = 20;
 			Scalar slope = (m_linear_bottom_temperature - m_linear_top_temperature) / m_floorHeight * coef;
 			Scalar intercept = m_linear_bottom_temperature - slope * m_floorHeight;
 			Vector interceptTemp;

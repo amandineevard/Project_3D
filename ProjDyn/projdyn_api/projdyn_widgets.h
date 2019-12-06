@@ -227,7 +227,7 @@ public:
 
 		// TODO: are initial value and range really general or some adaptation to different constraints is needed?
 		setValue(0);
-		setRange(std::pair<float, float>(0, 2));
+		setRange(std::pair<float, float>(-1, 1));
 		setFixedWidth(80);
 
 		// Add a textbox and set defaults
