@@ -122,6 +122,10 @@ public:
            setValue(simulator->getTempCoefDiffusion());
            setRange(std::pair<float, float>(0, 3));
        }
+	   if (tm == peak) {
+		   setValue(simulator->getTempCoefPeak());
+		   setRange(std::pair<float, float>(0, 100));
+	   }
 
         setFixedWidth(80);
 
@@ -147,6 +151,10 @@ public:
                 m_simulator->setTempCoefDiffusion(vv);
                 m_textBox->setValue(ProjDyn::floatToString(v));
             }
+			if (tm == peak) {
+				m_simulator->setTempCoefPeak(vv);
+				m_textBox->setValue(ProjDyn::floatToString(v));
+			}
         });
 
         m_textBox->setEditable(true);
@@ -163,6 +171,9 @@ public:
             if(tm == diffusion){
                 m_simulator->setTempCoefDiffusion(vv);
             }
+			if (tm == peak) {
+				m_simulator->setTempCoefPeak(vv);
+			}
             //m_constraint->weight = vv;
             this->setValue(v);
             this->finalCallback()(v);

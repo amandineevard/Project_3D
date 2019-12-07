@@ -132,6 +132,19 @@ public:
             }
             popupBtnTemp->setPushed(false);
         });
+		d = new Button(popupTemp, "Peak");
+		d->setCallback([this, popupBtnTemp]() {
+			bool was_active = m_simActive;
+			stop();
+			m_simulator.setTemperatureModel(peak);
+			m_simulator.setTempCoefPeak(20.0);
+			updateConstraintsGUI();
+			updateTemperatureGUI();
+			if (was_active) {
+				start();
+			}
+			popupBtnTemp->setPushed(false);
+		});
 
 
         PopupButton* popupBtn = new PopupButton(pd_win, "Add constraints", ENTYPO_ICON_LINK);
@@ -300,6 +313,9 @@ public:
 		}
 		else if (tm == diffusion){
 			name = "Diffusion coefficient";
+		}
+		else if (tm == peak) {
+			name = "Peak value";
 		}
 		new Label(m_temperature_window, name, "sans-bold");
 		Widget* panel = new Widget(m_temperature_window);

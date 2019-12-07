@@ -20,7 +20,7 @@
 #include <iostream>
 
 constexpr double PROJDYN_INITIAL_STIFFNESS = 100.;
-enum temperature_model { none, uniform, diffusion, linear };
+enum temperature_model { none, uniform, diffusion, linear, peak };
 
 namespace ProjDyn {
 	typedef Eigen::SimplicialLDLT<SparseMatrix> SparseSolver;
@@ -246,10 +246,33 @@ namespace ProjDyn {
 			else if (m_temperature_model == uniform) {
 				updateTemperatureUniform();
 			}
+			else if (m_temperature_model == peak) {
+				updateTemperaturePeaks();
+			}
 			else {
 				std::cerr << "No temperature model chosen!";
 			}
 			// ------------------------------------
+
+			// Update reference values in temperature dependent constraints (plasticity effect)
+			for (const auto& g : m_constraintGroups) {
+				if ((g->name == "Tet Strain") &           // only for Tet Strain (TODO: generalize?)
+					(m_temperatures.mean() > 20) &
+					(g->plastically_updated < 5)) {
+					for (auto constraint : g->constraints) {
+						// Downcast and access the member function that updates reference configuration
+						std::shared_ptr<ProjDyn::TetStrainConstraint> tet_strain_ptr = 
+							std::dynamic_pointer_cast<ProjDyn::TetStrainConstraint> (constraint);
+						tet_strain_ptr->updateReferencePositions(m_positions);
+					}
+					std::cout << "Plastic update number " << g->plastically_updated << std::endl;
+					g->plastically_updated++;
+				}
+			}
+
+			// Update current time
+			m_current_time += m_time_step;
+
             return true;
         }
 
@@ -259,6 +282,19 @@ namespace ProjDyn {
 			newTemp.resize(m_num_verts);
 			newTemp.setOnes();
 			newTemp *= m_uniform_temperature;
+			m_temperatures = newTemp;
+		}
+
+		// Function to create temperature peaks in time
+		void updateTemperaturePeaks() {
+			Vector newTemp;
+			newTemp.resize(m_num_verts);
+			newTemp.setOnes();
+			// Compute temperature at current time
+			int period = 2;
+			int exponential_steepness = 5;
+			Scalar time_in_period = m_current_time - period * ((int)floor(m_current_time / ((double)period)));
+			newTemp *= exp(exponential_steepness * (time_in_period + m_time_step - period)) * m_temperature_peak;
 			m_temperatures = newTemp;
 		}
 
@@ -375,6 +411,14 @@ namespace ProjDyn {
 
 		void setTempCoefUniform(double t){
 			m_uniform_temperature = t;
+		}
+
+		const double getTempCoefPeak() const {
+			return m_temperature_peak;
+		}
+
+		void setTempCoefPeak(double t) {
+			m_temperature_peak = t;
 		}
 
 		const double getTempCoefLinearTop() const{
@@ -579,6 +623,7 @@ namespace ProjDyn {
 		Scalar m_uniform_temperature;
 		Scalar m_linear_top_temperature = 0; // with linear increase the reference value is always 0 (TODO: generalize)
 		Scalar m_linear_bottom_temperature;
+		Scalar m_temperature_peak;
 
 		// Internal quantities during simulation
 		Positions m_velocities, m_momentum, m_old_positions;
@@ -624,6 +669,9 @@ namespace ProjDyn {
 
 		// Time step of the simulation
 		Scalar m_time_step = 1. / 60.;
+
+		// Time elapsed from start of the simulation
+		Scalar m_current_time = 0;
 
 		// If m_hasGrab is true, vertices with the indices in m_grabVerts will be forced
 		// to the positions set in m_grabPos

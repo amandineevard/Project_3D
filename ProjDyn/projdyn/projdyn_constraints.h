@@ -36,6 +36,7 @@ namespace ProjDyn {
         std::string name = "Unknown";
         std::vector<ConstraintPtr> constraints;
         Scalar weight = 1.;
+		unsigned plastically_updated = 0;  // Counts the plastic updates of the constraints
     };
 
     /* Blueprint of a Projectiv Dynamics constaint (weight, p, A) */
@@ -330,36 +331,43 @@ namespace ProjDyn {
 
             m_strain_freedom = strain_freedom;
 
-            // 3d edges of tet
-            Eigen::Matrix<Scalar, 3, 3> edges;
-            edges.col(0) = (positions.row(m_vertex_indices[1]) - positions.row(m_vertex_indices[0]));
-            edges.col(1) = (positions.row(m_vertex_indices[2]) - positions.row(m_vertex_indices[0]));
-            edges.col(2) = (positions.row(m_vertex_indices[3]) - positions.row(m_vertex_indices[0]));
-
-            // Inverse of edges matrix for computation of the deformation gradient
-            m_rest_edges_inv = edges.inverse();
-            bool didCorrect = false;
-            while (!m_rest_edges_inv.allFinite()) {
-                std::cout << "Illegal edges in mesh!" << std::endl;
-                for (int c = 0; c < 3; c++) {
-                    if (edges.col(c).norm() < 1e-12) {
-                        for (int r = 0; r < 3; r++) {
-                            edges(r, c) = (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 1e-11;
-                        }
-                    }
-                }
-                for (int r = 0; r < 3; r++) {
-                    if (edges.row(r).norm() < 1e-12) {
-                        for (int c = 0; c < 3; c++) {
-                            edges(r, c) = (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 1e-11;
-                        }
-                    }
-                }
-                m_rest_edges_inv = edges.inverse();
-                didCorrect = true;
-            }
-            if (didCorrect) std::cout << "Fixed!" << std::endl;
+			updateReferencePositions(positions);
         }
+
+		/* Updates the reference (rest) configuration by computing m_rest_edges_inv.
+		The method is used both for initialization (in the constructor) 
+		and for adding a plasticity effect. */
+		void updateReferencePositions(const Positions& positions){
+			// 3d edges of tet
+			Eigen::Matrix<Scalar, 3, 3> edges;
+			edges.col(0) = (positions.row(m_vertex_indices[1]) - positions.row(m_vertex_indices[0]));
+			edges.col(1) = (positions.row(m_vertex_indices[2]) - positions.row(m_vertex_indices[0]));
+			edges.col(2) = (positions.row(m_vertex_indices[3]) - positions.row(m_vertex_indices[0]));
+
+			// Inverse of edges matrix for computation of the deformation gradient
+			m_rest_edges_inv = edges.inverse();
+			bool didCorrect = false;
+			while (!m_rest_edges_inv.allFinite()) {
+				std::cout << "Illegal edges in mesh!" << std::endl;
+				for (int c = 0; c < 3; c++) {
+					if (edges.col(c).norm() < 1e-12) {
+						for (int r = 0; r < 3; r++) {
+							edges(r, c) = (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 1e-11;
+						}
+					}
+				}
+				for (int r = 0; r < 3; r++) {
+					if (edges.row(r).norm() < 1e-12) {
+						for (int c = 0; c < 3; c++) {
+							edges(r, c) = (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 1e-11;
+						}
+					}
+				}
+				m_rest_edges_inv = edges.inverse();
+				didCorrect = true;
+			}
+			if (didCorrect) std::cout << "Fixed!" << std::endl;
+		}
 
 		void updateAttributeTemp(const Vector& temperatures) {
 			Scalar temperature = 1 / 4.0 * (temperatures[m_vertex_indices[0]] +
