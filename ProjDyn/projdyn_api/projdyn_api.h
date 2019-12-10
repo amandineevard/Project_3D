@@ -15,7 +15,7 @@
 #include <nanogui/checkbox.h>
 #include "viewer.h"
 #include "projdyn_widgets.h"
-#include "projdyn_temperature.h"
+// #include "projdyn_temperature.h" // TODO: delete?
 
 class ProjDynAPI {
 public:
@@ -93,12 +93,19 @@ public:
         Popup* popupTemp = popupBtnTemp->popup();
         popupTemp->setLayout(new GroupLayout());
 
-        Button* d = new Button(popupTemp, "Constant");
+        Button* d = new Button(popupTemp, "Uniform");
         d->setCallback([this, popupBtnTemp]() {
             bool was_active = m_simActive;
             stop();
-            m_simulator.setTemperatureModel(uniform);
-            m_simulator.setTempCoefUniform(0.0);
+			auto temperature_ptr = 
+				std::make_shared<ProjDyn::TemperatureUniform>(
+					m_simulator.getFloorHeightPtr(),
+					m_simulator.getNumVertsPtr(), 
+					m_simulator.getPositionsPtr(), 
+					m_simulator.getTimeStepPtr(),
+					m_simulator.getNeighborsPtr()
+					);
+            m_simulator.setTemperaturePointer(temperature_ptr);
             updateConstraintsGUI();
 			updateTemperatureGUI();
             if (was_active) {
@@ -110,9 +117,15 @@ public:
         d->setCallback([this, popupBtnTemp]() {
             bool was_active = m_simActive;
             stop();
-            m_simulator.setTemperatureModel(linear);
-            m_simulator.setTempCoefLinearBottom(100.0);
-			m_simulator.setTempCoefLinearTop(0.0);
+			auto temperature_ptr = 
+				std::make_shared<ProjDyn::TemperatureLinear>(
+					m_simulator.getFloorHeightPtr(),
+					m_simulator.getNumVertsPtr(),
+					m_simulator.getPositionsPtr(),
+					m_simulator.getTimeStepPtr(),
+					m_simulator.getNeighborsPtr()
+					);
+			m_simulator.setTemperaturePointer(temperature_ptr);
             updateConstraintsGUI();
 			updateTemperatureGUI();
             if (was_active) {
@@ -124,8 +137,15 @@ public:
         d->setCallback([this, popupBtnTemp]() {
             bool was_active = m_simActive;
             stop();
-            m_simulator.setTemperatureModel(diffusion);
-            m_simulator.setTempCoefDiffusion(1.0);
+			auto temperature_ptr = 
+				std::make_shared<ProjDyn::TemperatureDiffusion>(
+					m_simulator.getFloorHeightPtr(),
+					m_simulator.getNumVertsPtr(),
+					m_simulator.getPositionsPtr(),
+					m_simulator.getTimeStepPtr(),
+					m_simulator.getNeighborsPtr()
+					);
+			m_simulator.setTemperaturePointer(temperature_ptr);
             updateConstraintsGUI();
 			updateTemperatureGUI();
             if (was_active) {
@@ -291,15 +311,15 @@ public:
 		}
 
 		// Add temperature model coefficient slider:
-		TemperatureModel tm = m_simulator.getTemperatureModel();
+		ProjDyn::TemperatureModel tm = m_simulator.getTemperaturePointer()->getTemperatureModel();
 		std::string name = "";
-		if (tm == uniform){
+		if (tm == ProjDyn::uniform){
 			name = "Uniform temperature";
 		}
-		else if (tm == linear){
+		else if (tm == ProjDyn::linear){
 			name = "Floor temperature";
 		}
-		else if (tm == diffusion){
+		else if (tm == ProjDyn::diffusion){
 			name = "Diffusion coefficient";
 		}
 		new Label(m_temperature_window, name, "sans-bold");
@@ -522,7 +542,7 @@ public:
     }
 
 	void updateColor() {
-		ProjDyn::Vector temperatures = m_simulator.getTemperatures();
+		ProjDyn::Vector temperatures = m_simulator.getTemperaturePointer()->getTemperatures();
 		ProjDyn::Index n_vertices = m_simulator.getNumVerts();
 		MatrixXf vertex_color(3, n_vertices);
 		vertex_color.setZero();

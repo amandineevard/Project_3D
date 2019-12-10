@@ -11,7 +11,7 @@
 #include "projdyn_tetgen.h"
 #include <nanogui/slider.h>
 #include "viewer.h"
-#include "projdyn_temperature.h"
+// #include "projdyn_temperature.h" // TODO: delete?
 
 // A specialized constraint-weight slider widget, inheriting from the NanoGUI slider,
 // which highlights the associated constraint groups on a mouse-over-event, and
@@ -110,17 +110,17 @@ public:
         m_numVerts = numVerts;
         m_simulator = simulator;
 
-        double tm = simulator->getTemperatureModel();
-        if(tm == uniform){
-            setValue(simulator->getTempCoefUniform());
+        double tm = m_simulator->getTemperaturePointer()->getTemperatureModel();
+        if(tm == ProjDyn::uniform){
+            setValue(m_simulator->getTemperaturePointer()->getTemperatureCoefficient());
             setRange(std::pair<float, float>(0, 100));
         }
-        if(tm == linear){
-            setValue(simulator->getTempCoefLinearBottom());
+        if(tm == ProjDyn::linear){
+            setValue(m_simulator->getTemperaturePointer()->getTemperatureCoefficient());
             setRange(std::pair<float, float>(0, 200));
         }
-       if(tm == diffusion){
-           setValue(simulator->getTempCoefDiffusion());
+       if(tm == ProjDyn::diffusion){
+           setValue(m_simulator->getTemperaturePointer()->getTemperatureCoefficient());
            setRange(std::pair<float, float>(0, 3));
        }
 
@@ -131,40 +131,41 @@ public:
         m_textBox->setFixedSize(Vector2i(80, 25));
         m_textBox->setValue(ProjDyn::floatToString(value()));
 
+		// TODO: if there is actually only one coef for all the temp models, the if is not needed anymore:
+		// all the model have the same interface
         setCallback([this](float v) {
             float vv = v;
             m_textBox->setValue(ProjDyn::floatToString(v));
-            //m_constraint->weight = vv;
-            double tm = m_simulator->getTemperatureModel();
-            if(tm == uniform){
-                m_simulator->setTempCoefUniform(vv);
+            double tm = m_simulator->getTemperaturePointer()->getTemperatureModel();
+            if(tm == ProjDyn::uniform){
+                m_simulator->getTemperaturePointer()->setTemperatureCoefficient(vv);
                 m_textBox->setValue(ProjDyn::floatToString(v));
             }
-            if(tm == linear){
-                m_simulator->setTempCoefLinearBottom(vv);
+            if(tm == ProjDyn::linear){
+				m_simulator->getTemperaturePointer()->setTemperatureCoefficient(vv);
                 m_textBox->setValue(ProjDyn::floatToString(v));
             }
-            if(tm == diffusion){
-                m_simulator->setTempCoefDiffusion(vv);
+            if(tm == ProjDyn::diffusion){
+				m_simulator->getTemperaturePointer()->setTemperatureCoefficient(vv);
                 m_textBox->setValue(ProjDyn::floatToString(v));
             }
         });
 
+		// TODO: idem like above
         m_textBox->setEditable(true);
         m_textBox->setCallback([this](const std::string& val) -> bool {
             float v = std::stof(val);
             float vv = v;
-            double tm = m_simulator->getTemperatureModel();
-            if(tm == uniform){
-                m_simulator->setTempCoefUniform(vv);
+            double tm = m_simulator->getTemperaturePointer()->getTemperatureModel();
+            if(tm == ProjDyn::uniform){
+				m_simulator->getTemperaturePointer()->setTemperatureCoefficient(vv);
             }
-            if(tm == linear){
-                m_simulator->setTempCoefLinearBottom(vv);
+            if(tm == ProjDyn::linear){
+				m_simulator->getTemperaturePointer()->setTemperatureCoefficient(vv);
             }
-            if(tm == diffusion){
-                m_simulator->setTempCoefDiffusion(vv);
+            if(tm == ProjDyn::diffusion){
+				m_simulator->getTemperaturePointer()->setTemperatureCoefficient(vv);
             }
-            //m_constraint->weight = vv;
             this->setValue(v);
             this->finalCallback()(v);
             return true;

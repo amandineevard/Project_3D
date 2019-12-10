@@ -1,3 +1,6 @@
+#ifndef PROJDYN_H
+#define PROJDYN_H
+
 // DGP 2019 Project
 // ShapeUp and Projective Dynamics
 // Author: Christopher Brandt
@@ -15,13 +18,13 @@
 #include "projdyn_types.h"
 #include "projdyn_common.h"
 #include "projdyn_constraints.h"
-//#include "projdyn_temperature.h"
+#include "projdyn_temperature.h"
 
 #include <memory>
 #include <iostream>
 
 constexpr double PROJDYN_INITIAL_STIFFNESS = 100.;
-enum TemperatureModel { none, uniform, linear, diffusion };
+// enum TemperatureModel { none, uniform, linear, diffusion };
 
 namespace ProjDyn {
 	typedef Eigen::SimplicialLDLT<SparseMatrix> SparseSolver;
@@ -56,7 +59,8 @@ namespace ProjDyn {
 			m_constraint_mat_t(0, 0),
 			m_laplacian(0, 0),
 			m_system_init(false),
-			m_lhs_updated(false)
+			m_lhs_updated(false),
+			m_temperature_ptr(nullptr)
 		{}
 
         // Based on the current vertices, triangles, tetrahedrons and constraints,
@@ -88,7 +92,7 @@ namespace ProjDyn {
                 return false;
             }
 
-			if (m_temperature_model == none) {
+			if (m_temperature_ptr == nullptr) {
 				std::cout << "WARNING: Could not initialize: no temperature model chosen." << std::endl;
 				return false;
 			}
@@ -135,8 +139,7 @@ namespace ProjDyn {
             m_old_positions.setZero();
 
 			// Initialize temperature
-			m_temperatures.resize(m_num_verts);
-			m_temperatures.setZero();
+			m_temperature_ptr->resetTemperatures();
 
 			// Create map of neighbors
 			buildNeighbors();
@@ -187,7 +190,7 @@ namespace ProjDyn {
                 // --------------------------------------------------
 #pragma omp parallel for
                 for (int j = 0; j < m_constraints.size(); j++) {
-                    m_constraints[j]->project(m_positions, m_constraint_projections, m_temperatures);
+                    m_constraints[j]->project(m_positions, m_constraint_projections, m_temperature_ptr->getTemperatures());
                 }
 
                 // --------------------------------------------------
@@ -210,22 +213,9 @@ namespace ProjDyn {
                 m_velocities = (1. / m_time_step) * (m_positions - m_old_positions);
             }
 
-			// ------------------------------------
-			// Update temperature here
-			if(m_temperature_model == linear){
-				updateTemperatureHeight();
-			}
-			else if (m_temperature_model == diffusion) {
-				updateTemperatureDiffusion(100);
-			}
-			else if (m_temperature_model == uniform) {
-				updateTemperatureUniform();
-			}
-			else {
-				std::cerr << "No temperature model chosen!";
-			}
+			m_temperature_ptr->updateTemperature();
 
-			//updateGravity();
+			updateGravity();
 
 			// ------------------------------------
             return true;
@@ -233,79 +223,7 @@ namespace ProjDyn {
 
 		void updateGravity() {
 			m_ext_forces.col(1).setConstant(-m_gravity);
-			m_ext_forces.col(1) += 0.15 * m_temperatures;
-		}
-
-		// Function to update temperature uniformly on the mesh
-		void updateTemperatureUniform() {
-			Vector newTemp;
-			newTemp.resize(m_num_verts);
-			newTemp.setOnes();
-			newTemp *= m_uniform_temperature;
-			m_temperatures = newTemp;
-		}
-
-		// Function to update temperature according to height
-		void updateTemperatureHeight() {
-			// TODO: improve implementation (add also m_linear_top_temperature control and get rid of meaningless coef)
-			Scalar coef = 20;
-			Scalar slope = (m_linear_bottom_temperature - m_linear_top_temperature) / m_floorHeight * coef;
-			Scalar intercept = m_linear_bottom_temperature - slope * m_floorHeight;
-			Vector interceptTemp;
-			interceptTemp.resize(m_num_verts);
-			interceptTemp.setOnes();
-			interceptTemp *= intercept;
-			m_temperatures = interceptTemp +  slope * m_positions.col(1);
-
-			for (int i = 0; i < m_num_verts; i++) {
-				if (m_temperatures[i] < 0) {
-					m_temperatures[i] = 0;
-				}
-				else if (m_temperatures[i] > m_linear_bottom_temperature) {
-					m_temperatures[i] = m_linear_bottom_temperature;
-				}
-			}
-
-		}
-
-		// Function to update temperature according to heigth
-		void updateTemperatureDiffusion(Scalar maxTemp) {
-			/*Vector groundTemp;
-			groundTemp.resize(m_num_verts);
-			groundTemp.setOnes();
-			groundTemp *= maxTemp;*/
-
-			Vector groundHeight;
-			groundHeight.resize(m_num_verts);
-			groundHeight.setOnes();
-			groundHeight *= m_floorHeight;
-
-
-			for (int i = 0; i < m_num_verts; i++) {
-				if (m_positions.col(1)[i]-groundHeight[i] < 0.00001) {
-					m_temperatures[i] = maxTemp;
-				}
-			}
-
-			Vector new_temp;
-			new_temp.resize(m_num_verts);
-			new_temp.setZero();
-			for (int i = 0; i < m_num_verts; i++) {
-				Scalar ti = m_temperatures[i];
-				std::vector<int> neig = m_neighbors.at(i);
-				int nb_neighbors = neig.size();
-				//std::cout << "nb_neighbors i = " << nb_neighbors <<"\n";
-				Scalar new_temp_i = 0;
-				for(int j: neig){
-					Scalar tj = m_temperatures[j];
-					new_temp_i += 1.0/nb_neighbors * (tj-ti)*m_temp_coef_diffusion*m_time_step/((m_positions.row(i)-m_positions.row(j)).norm());
-				}
-				new_temp[i] = ti+new_temp_i;
-				//std::cout << "new temp i = " << new_temp_i <<"\n";
-				if (new_temp[i] > maxTemp){new_temp[i] = maxTemp;}
-				if(new_temp[i] <0 ){new_temp[i] = 0;}
-			}
-			m_temperatures = new_temp;
+			m_ext_forces.col(1) += 0.15 * m_temperature_ptr->getTemperatures();
 		}
 
 		// Provide a n by 3 scalar matrix containing x, y, z positions of each vertex per row
@@ -336,52 +254,11 @@ namespace ProjDyn {
 		void resetPositions() {
 			m_positions = m_initial_positions;
 			m_velocities.setZero(m_positions.rows(), 3);
-			m_temperatures.setZero();
+			m_temperature_ptr->resetTemperatures();
 		}
 
-		// Getter for temperatures
-		const Vector& getTemperatures() const {
-			return m_temperatures;
-		}
-
-		const TemperatureModel getTemperatureModel() const{
-			return m_temperature_model;
-		}
-
-		void setTemperatureModel(TemperatureModel t){
-			m_temperature_model = t;
-		}
-
-		const double getTempCoefUniform() const{
-			return m_uniform_temperature;
-		}
-
-		void setTempCoefUniform(double t){
-			m_uniform_temperature = t;
-		}
-
-		const double getTempCoefLinearTop() const{
-			return m_linear_top_temperature;
-		}
-
-		const double getTempCoefLinearBottom() const {
-			return m_linear_bottom_temperature;
-		}
-
-		void setTempCoefLinearTop(double t){
-			m_linear_top_temperature = t;
-		}
-
-		void setTempCoefLinearBottom(double t) {
-			m_linear_bottom_temperature = t;
-		}
-
-		const double getTempCoefDiffusion() const{
-			return m_temp_coef_diffusion;
-		}
-
-		void setTempCoefDiffusion(double t){
-			m_temp_coef_diffusion = t;
+		const std::shared_ptr<Temperature> getTemperaturePointer() {
+			return m_temperature_ptr;
 		}
 
 		const Triangles& getTriangles() const {
@@ -473,6 +350,12 @@ namespace ProjDyn {
 			return (m_system_init && m_lhs_updated);
 		}
 
+		// Make the pointer point to an instance of Temperature derived class 
+		// implementing the temperature change method.
+		void setTemperaturePointer(std::shared_ptr<Temperature> temperature_pointer) {
+			m_temperature_ptr = temperature_pointer;
+		}
+
 		// Set gravitational acceleration.
 		// Note that external forces are reset to 0 when the system is initialized.
 		void setGravity(Scalar g) {
@@ -545,6 +428,25 @@ namespace ProjDyn {
             return m_floorHeight;
         }
 
+		/* Getters for pointers to protected members 
+		(not a good idea but the only possibility to avoid 
+		circular dependencies between Temperature and Simulator classes) */
+		Scalar* getFloorHeightPtr() {
+			return &m_floorHeight;
+		}
+		Index* getNumVertsPtr() {
+			return &m_num_verts;
+		}
+		Positions* getPositionsPtr() {
+			return &m_positions;
+		}
+		Scalar* getTimeStepPtr() {
+			return &m_time_step;
+		}
+		std::map<int, std::vector<int>>* getNeighborsPtr() {
+			return &m_neighbors;
+		}
+
 	protected:
 		// Mesh faces, vertices and tetrahedrons
 		Positions m_positions, m_initial_positions;
@@ -560,18 +462,13 @@ namespace ProjDyn {
 		// the momentum term can be computed cheaper.
 		Positions m_ext_forces;
 
-		// Temperature
-		Vector m_temperatures;
+		// The pointed Temperature class contains vertices temperatures and
+		// a method to update temperature at every step. Different methods are
+		// provided in different derived classes.
+		std::shared_ptr<Temperature> m_temperature_ptr;
 
-		// Neighbors
+		// Neighbors (TODO: add comment, what are they used for?)
 		std::map<int, std::vector<int>> m_neighbors;
-
-		//temperature model:
-		TemperatureModel m_temperature_model = none;
-		Scalar m_temp_coef_diffusion;
-		Scalar m_uniform_temperature;
-		Scalar m_linear_top_temperature = 0; // with linear increase the reference value is always 0 (TODO: generalize)
-		Scalar m_linear_bottom_temperature;
 
 		// Internal quantities during simulation
 		Positions m_velocities, m_momentum, m_old_positions;
@@ -734,3 +631,5 @@ namespace ProjDyn {
 	};
 
 }
+
+#endif // PROJDYN_H
