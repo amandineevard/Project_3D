@@ -456,21 +456,28 @@ namespace ProjDyn {
 
             m_strain_freedom = 0.;
 
-            Eigen::Matrix<Scalar, 3, 2> edges, P;
-            // 3d edges of triangle
-            edges.col(0) = (positions.row(m_vertex_indices[1]) - positions.row(m_vertex_indices[0]));
-            edges.col(1) = (positions.row(m_vertex_indices[2]) - positions.row(m_vertex_indices[0]));
-
-            // Projection that embeds these edges isometrically in 2d, in a way that the first edge is aligned to the x-axis
-            P.col(0) = edges.col(0).normalized();
-            P.col(1) = (edges.col(1) - edges.col(1).dot(P.col(0)) * P.col(0)).normalized();
-
-            // Compute the 2d rest edges
-            Eigen::Matrix<Scalar, 2, 2> restEdges = P.transpose() * edges;
-
-            // ... and their inverse
-            m_rest_edges_inv = restEdges.inverse();
+			updateReferencePositions(positions);
         }
+
+		/* Updates the reference (rest) configuration by computing m_rest_edges_inv.
+		The method is used both for initialization (in the constructor)
+		and for adding a plasticity effect. */
+		void updateReferencePositions(const Positions& positions) {
+			Eigen::Matrix<Scalar, 3, 2> edges, P;
+			// 3d edges of triangle
+			edges.col(0) = (positions.row(m_vertex_indices[1]) - positions.row(m_vertex_indices[0]));
+			edges.col(1) = (positions.row(m_vertex_indices[2]) - positions.row(m_vertex_indices[0]));
+
+			// Projection that embeds these edges isometrically in 2d, in a way that the first edge is aligned to the x-axis
+			P.col(0) = edges.col(0).normalized();
+			P.col(1) = (edges.col(1) - edges.col(1).dot(P.col(0)) * P.col(0)).normalized();
+
+			// Compute the 2d rest edges
+			Eigen::Matrix<Scalar, 2, 2> restEdges = P.transpose() * edges;
+
+			// ... and their inverse
+			m_rest_edges_inv = restEdges.inverse();
+		}
 
 		void updateAttributeTemp(const Vector& temperatures) {
 			Scalar temperature = 1/3.0 * (temperatures[m_vertex_indices[0]] + 

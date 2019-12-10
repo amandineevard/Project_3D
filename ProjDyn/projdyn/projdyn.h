@@ -233,6 +233,7 @@ namespace ProjDyn {
             if (m_dynamicMode) {
                 // Lastly, update the velocities as finite differences between the old and new positions
                 m_velocities = (1. / m_time_step) * (m_positions - m_old_positions);
+				std::cout << "Mean velocity: " << m_velocities.mean() << std::endl;  // TODO: delete
             }
 
 			// ------------------------------------
@@ -252,6 +253,8 @@ namespace ProjDyn {
 			else {
 				std::cerr << "No temperature model chosen!";
 			}
+			// Print on screen the mean temperature of the model
+			std::cout << "Mean temperature: " << m_temperatures.mean() << std::endl;
 			// ------------------------------------
 
 			// Update reference values in temperature dependent constraints (plasticity effect)
@@ -263,12 +266,74 @@ namespace ProjDyn {
 						// Downcast and access the member function that updates reference configuration
 						std::shared_ptr<ProjDyn::TetStrainConstraint> tet_strain_ptr = 
 							std::dynamic_pointer_cast<ProjDyn::TetStrainConstraint> (constraint);
+						/*Positions translation = m_initial_positions;
+						translation.setOnes();
+						translation(0, 0) += 0.05;
+						translation(0, 1) += 0.05;
+						translation(0, 2) += 0.05;
+						translation(1, 0) += 0.05;
+						translation(1, 1) += 0.05;
+						translation(1, 2) += 0.05;
+						translation(2, 0) += 0.05;
+						translation(2, 1) += 0.05;
+						translation(2, 2) += 0.05;*/
+						//tet_strain_ptr->updateReferencePositions(m_initial_positions + translation);
 						tet_strain_ptr->updateReferencePositions(m_positions);
 					}
-					std::cout << "Plastic update number " << g->plastically_updated << std::endl;
+					std::cout << "TetStrain plastic update " << g->plastically_updated << std::endl;
+					g->plastically_updated++;
+				}
+				else if ((g->name == "Tri Strain") &
+						 (m_temperatures.mean() > 20) &
+						 (g->plastically_updated < 5)) {
+					for (auto constraint : g->constraints) {
+						// Downcast and access the member function that updates reference configuration
+						std::shared_ptr<ProjDyn::TriangleStrainConstraint> triangle_strain_ptr =
+							std::dynamic_pointer_cast<ProjDyn::TriangleStrainConstraint> (constraint);
+						/*Positions translation = m_initial_positions;
+						translation.setOnes();
+						translation(0, 0) += 0.05;
+						translation(0, 1) += 0.05;
+						translation(0, 2) += 0.05;
+						translation(1, 0) += 0.05;
+						translation(1, 1) += 0.05;
+						translation(1, 2) += 0.05;
+						translation(2, 0) += 0.05;
+						translation(2, 1) += 0.05;
+						translation(2, 2) += 0.05;*/
+						//tet_strain_ptr->updateReferencePositions(m_initial_positions + translation);
+						triangle_strain_ptr->updateReferencePositions(m_positions);
+					}
+					std::cout << "TriangleStrain plastic update " << g->plastically_updated << std::endl;
 					g->plastically_updated++;
 				}
 			}
+
+			// Recompute rhs and lhs (since A_i matrix has changed)
+			// Collect entries of constraint matrix
+			std::vector<Triplet> con_triplets, con_triplets_t;
+			Index row_ind = 0, row_ind2 = 0;;
+			for (auto c : m_constraints) {
+				// The following function adds the row sqrt(w_i) A_i S_i
+				// (using the notation of the paper) to the matrix
+				c->addConstraint(con_triplets, row_ind2, true, false);
+				// The following function adds the row w_i S_i^T A_i^T
+				// (using the notation of the paper) to the matrix
+				c->addConstraint(con_triplets_t, row_ind, false, true);
+			}
+			// Construct the "laplacian" matrix from the triplets,
+			// i.e. the matrix Sum_i w_i S_i^T A_i^T A_i S_i, which
+			// appears on the left hand side of the system of the global step
+			SparseMatrixRM temp1(row_ind, m_num_verts);
+			temp1.setFromTriplets(con_triplets.begin(), con_triplets.end());
+			SparseMatrix temp2 = temp1.transpose();
+			m_laplacian = temp2 * temp1;
+			// Also construct the matrix Sum_i w_i S_i^T A_i^T 
+			// which appears on the right hand side of the global step
+			m_constraint_mat_t.resize(m_num_verts, row_ind);
+			m_constraint_mat_t.setFromTriplets(con_triplets_t.begin(), con_triplets_t.end());
+			// Also lhs contains matrix A_i, recompute it
+			recomputeLHS();
 
 			// Update current time
 			m_current_time += m_time_step;
@@ -295,6 +360,8 @@ namespace ProjDyn {
 			int exponential_steepness = 5;
 			Scalar time_in_period = m_current_time - period * ((int)floor(m_current_time / ((double)period)));
 			newTemp *= exp(exponential_steepness * (time_in_period + m_time_step - period)) * m_temperature_peak;
+			if (m_current_time > period)
+				newTemp.setZero();
 			m_temperatures = newTemp;
 		}
 
@@ -390,6 +457,7 @@ namespace ProjDyn {
 			m_positions = m_initial_positions;
 			m_velocities.setZero(m_positions.rows(), 3);
 			m_temperatures.setZero();
+			m_current_time = 0;
 		}
 
 		// Getter for temperatures

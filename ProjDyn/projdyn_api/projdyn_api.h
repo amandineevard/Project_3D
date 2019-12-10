@@ -543,7 +543,6 @@ public:
 		vertex_color.setZero();
 		for (int i = 0; i < n_vertices; i++) vertex_color.col(i) = Vector3f(temperatures[i]/100, 0.2, 1.0 - temperatures[i] / 100);
 		m_viewer->changeColor(vertex_color);
-		std::cout << "Mean temperature: " << temperatures.mean() << std::endl;
 	}
 
     // Set external forces to point into downwards y direction with a certain magnitude
