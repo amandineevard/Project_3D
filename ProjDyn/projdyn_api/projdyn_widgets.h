@@ -11,7 +11,6 @@
 #include "projdyn_tetgen.h"
 #include <nanogui/slider.h>
 #include "viewer.h"
-#include "projdyn_temperature.h"
 
 // A specialized constraint-weight slider widget, inheriting from the NanoGUI slider,
 // which highlights the associated constraint groups on a mouse-over-event, and
@@ -237,7 +236,8 @@ public:
 		m_textBox->setValue(ProjDyn::floatToString(value()));
 
 		setCallback([this](float v) {
-			float vv = v / std::abs(v) * std::pow(10000, std::abs(v) - 1);
+			float vv; // vv is an odd function of v (can be negative)
+			(v > 0) ? vv = std::pow(10000, v - 1) : vv = -std::pow(10000, -v - 1);
 			m_textBox->setValue(ProjDyn::floatToString(v));
 			for (auto& constraint : m_constraint->constraints) {
 				constraint->setTemperatureCoef(vv);
@@ -247,7 +247,8 @@ public:
 		m_textBox->setEditable(true);
 		m_textBox->setCallback([this](const std::string& val) -> bool {
 			float v = std::stof(val);
-			float vv = v / std::abs(v) * std::pow(10000, std::abs(v) - 1);
+			float vv; // vv is an odd function of v (can be negative)
+			(v > 0) ? vv = std::pow(10000, v - 1) : vv = -std::pow(10000, -v - 1);
 			for (auto& constraint : m_constraint->constraints) {
 				constraint->setTemperatureCoef(vv);
 			}

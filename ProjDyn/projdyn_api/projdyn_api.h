@@ -15,7 +15,6 @@
 #include <nanogui/checkbox.h>
 #include "viewer.h"
 #include "projdyn_widgets.h"
-#include "projdyn_temperature.h"
 
 class ProjDynAPI {
 public:
@@ -228,7 +227,7 @@ public:
     // Add an (empty) GUI window in which each constraint group that is added through
     // this API gets a slider which controls a weight multiplier.
     void initConstraintsGUI() {
-        m_constraint_window = new Window(m_viewer, "Constraints");
+        m_constraint_window = new Window(m_viewer, "Constraints weights");
         m_constraint_window->setPosition(Vector2i(780, 25));
         m_constraint_window->setLayout(new GroupLayout());
     }
@@ -236,7 +235,7 @@ public:
 	// Add an (empty) GUI window in which temperature
 	// gets a slider which controls a weight multiplier.
 	void initTemperatureGUI() {
-		m_temperature_window = new Window(m_viewer, "Temperature");
+		m_temperature_window = new Window(m_viewer, "Temperature coefficients");
 		m_temperature_window->setPosition(Vector2i(780, 360));
 		m_temperature_window->setLayout(new GroupLayout());
 	}
