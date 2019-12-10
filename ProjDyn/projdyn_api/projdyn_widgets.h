@@ -11,6 +11,7 @@
 #include "projdyn_tetgen.h"
 #include <nanogui/slider.h>
 #include "viewer.h"
+#include "projdyn_temperature.h"
 
 // A specialized constraint-weight slider widget, inheriting from the NanoGUI slider,
 // which highlights the associated constraint groups on a mouse-over-event, and

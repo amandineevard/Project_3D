@@ -15,6 +15,7 @@
 #include <nanogui/checkbox.h>
 #include "viewer.h"
 #include "projdyn_widgets.h"
+#include "projdyn_temperature.h"
 
 class ProjDynAPI {
 public:
@@ -232,7 +233,7 @@ public:
         m_constraint_window->setLayout(new GroupLayout());
     }
 
-	// Add an (empty) GUI window in which temperature 
+	// Add an (empty) GUI window in which temperature
 	// gets a slider which controls a weight multiplier.
 	void initTemperatureGUI() {
 		m_temperature_window = new Window(m_viewer, "Temperature");
@@ -278,8 +279,8 @@ public:
         m_viewer->performLayout();
     }
 
-	// Each time the temperature model or the constraints of the simulation change, 
-	// this gets called to create one slider (and textboxes) for the 
+	// Each time the temperature model or the constraints of the simulation change,
+	// this gets called to create one slider (and textboxes) for the
 	// temperature model and for each temperature dependent constraint group.
 	void updateTemperatureGUI() {
 		if (!m_temperature_window) return;
@@ -290,7 +291,7 @@ public:
 		}
 
 		// Add temperature model coefficient slider:
-		temperature_model tm = m_simulator.getTemperatureModel();
+		TemperatureModel tm = m_simulator.getTemperatureModel();
 		std::string name = "";
 		if (tm == uniform){
 			name = "Uniform temperature";
@@ -509,7 +510,7 @@ public:
                 m_uploadNormals(1, vInd) = normal(1);
                 m_uploadNormals(2, vInd) = normal(2);
             }
-			
+
 			// Upload the colors
 			updateColor(); //New (to change color)
 
@@ -555,7 +556,7 @@ public:
     }
 
     // Add constraints to the simulator, either as groups, as lists
-    // or as single constraints 
+    // or as single constraints
     void addConstraints(const std::vector<ProjDyn::ConstraintPtr>& constraints) {
         m_simulator.addConstraints(constraints);
         updateConstraintsGUI();

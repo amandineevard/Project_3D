@@ -15,12 +15,13 @@
 #include "projdyn_types.h"
 #include "projdyn_common.h"
 #include "projdyn_constraints.h"
+//#include "projdyn_temperature.h"
 
 #include <memory>
 #include <iostream>
 
 constexpr double PROJDYN_INITIAL_STIFFNESS = 100.;
-enum temperature_model { none, uniform, diffusion, linear };
+enum TemperatureModel { none, uniform, linear, diffusion };
 
 namespace ProjDyn {
 	typedef Eigen::SimplicialLDLT<SparseMatrix> SparseSolver;
@@ -113,7 +114,7 @@ namespace ProjDyn {
             SparseMatrix temp2 = temp1.transpose();
             m_laplacian = temp2 * temp1;
 
-            // Also construct the matrix Sum_i w_i S_i^T A_i^T 
+            // Also construct the matrix Sum_i w_i S_i^T A_i^T
             // which appears on the right hand side of the global step
             m_constraint_mat_t.resize(m_num_verts, row_ind);
             m_constraint_mat_t.setFromTriplets(con_triplets_t.begin(), con_triplets_t.end());
@@ -137,9 +138,8 @@ namespace ProjDyn {
 			m_temperatures.resize(m_num_verts);
 			m_temperatures.setZero();
 
-			//create array of neighbors:
-
-            std::map<int, std::vector<int>> dictNeigbhors;
+			// Create map of neighbors
+            std::map<int, std::vector<int>> dictNeighbors;
             for(int i = 0; i < m_num_verts; i++) {
 				std::vector<int> vect;
 				for(int k=0;k<m_num_tris;k++){
@@ -161,9 +161,9 @@ namespace ProjDyn {
 				}
 				sort( vect.begin(), vect.end() );
 				vect.erase( unique( vect.begin(), vect.end() ), vect.end() );
-				dictNeigbhors.insert(std::pair <int,std::vector<int>>  (i,vect));
+				dictNeighbors.insert(std::pair <int,std::vector<int>>  (i,vect));
             }
-            m_neighbors = dictNeigbhors;
+            m_neighbors = dictNeighbors;
 
 
             // With this, the system is initialized
@@ -193,7 +193,7 @@ namespace ProjDyn {
                 m_momentum = m_positions;
             }
 
-            // If vertices are being grabbed by the mouse, we enforce this here 
+            // If vertices are being grabbed by the mouse, we enforce this here
             // (this is only used in the simulation, for ShapeUp, proper position
             // constraint groups are used!)
             if (m_hasGrab && m_grabVerts.size() == m_grabPos.size()) {
@@ -361,11 +361,11 @@ namespace ProjDyn {
 			return m_temperatures;
 		}
 
-		const temperature_model getTemperatureModel() const{
+		const TemperatureModel getTemperatureModel() const{
 			return m_temperature_model;
 		}
 
-		void setTemperatureModel(temperature_model t){
+		void setTemperatureModel(TemperatureModel t){
 			m_temperature_model = t;
 		}
 
@@ -431,6 +431,16 @@ namespace ProjDyn {
 			return m_num_verts;
 		}
 
+		// Returns the current time step used for simulation
+		Scalar getTimeStep() const {
+			return m_time_step;
+		}
+
+		// Returns the total number of vertices (inner and outer vertices)
+		std::map<int, std::vector<int>> getNeighbors() const {
+			return m_neighbors;
+		}
+
 		// Adds constraints to the simulation.
 		// The system will have to be re-initialized to contain the changed constraints.
 		void addConstraints(const std::vector<ConstraintPtr>& newCons) {
@@ -486,7 +496,7 @@ namespace ProjDyn {
             m_gravity = g;
 		}
 
-        // Switches between dynamic (i.e. simulation) mode and static mode (i.e. 
+        // Switches between dynamic (i.e. simulation) mode and static mode (i.e.
         // constraint based shape optimization)
         void setDynamic(bool dynamic) {
             m_dynamicMode = dynamic;
@@ -570,11 +580,11 @@ namespace ProjDyn {
 		// Temperature
 		Vector m_temperatures;
 
-		//neighbors
+		// Neighbors
 		std::map<int, std::vector<int>> m_neighbors;
 
 		//temperature model:
-		temperature_model m_temperature_model = none;
+		TemperatureModel m_temperature_model = none;
 		Scalar m_temp_coef_diffusion;
 		Scalar m_uniform_temperature;
 		Scalar m_linear_top_temperature = 0; // with linear increase the reference value is always 0 (TODO: generalize)
