@@ -237,7 +237,7 @@ public:
 		m_textBox->setValue(ProjDyn::floatToString(value()));
 
 		setCallback([this](float v) {
-			float vv = std::pow(10000, v - 1);
+			float vv = v / std::abs(v) * std::pow(10000, std::abs(v) - 1);
 			m_textBox->setValue(ProjDyn::floatToString(v));
 			for (auto& constraint : m_constraint->constraints) {
 				constraint->setTemperatureCoef(vv);
@@ -247,7 +247,7 @@ public:
 		m_textBox->setEditable(true);
 		m_textBox->setCallback([this](const std::string& val) -> bool {
 			float v = std::stof(val);
-			float vv = std::pow(10000, v - 1);
+			float vv = v / std::abs(v) * std::pow(10000, std::abs(v) - 1);
 			for (auto& constraint : m_constraint->constraints) {
 				constraint->setTemperatureCoef(vv);
 			}

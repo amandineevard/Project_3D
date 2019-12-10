@@ -139,32 +139,7 @@ namespace ProjDyn {
 			m_temperatures.setZero();
 
 			// Create map of neighbors
-            std::map<int, std::vector<int>> dictNeighbors;
-            for(int i = 0; i < m_num_verts; i++) {
-				std::vector<int> vect;
-				for(int k=0;k<m_num_tris;k++){
-					for(int j=0 ; j<3 ;j++){
-						auto ind = m_triangles(k,j);
-						if(ind == i ) {
-							if (j == 0) {
-								vect.push_back(m_triangles(k, 1));
-								vect.push_back(m_triangles(k, 2));
-							} else if (j == 1) {
-								vect.push_back(m_triangles(k, 0));
-								vect.push_back(m_triangles(k, 2));
-							} else {
-								vect.push_back(m_triangles(k, 0));
-								vect.push_back(m_triangles(k, 1));
-							}
-						}
-					}
-				}
-				sort( vect.begin(), vect.end() );
-				vect.erase( unique( vect.begin(), vect.end() ), vect.end() );
-				dictNeighbors.insert(std::pair <int,std::vector<int>>  (i,vect));
-            }
-            m_neighbors = dictNeighbors;
-
+			buildNeighbors();
 
             // With this, the system is initialized
             m_system_init = true;
@@ -249,9 +224,17 @@ namespace ProjDyn {
 			else {
 				std::cerr << "No temperature model chosen!";
 			}
+
+			//updateGravity();
+
 			// ------------------------------------
             return true;
         }
+
+		void updateGravity() {
+			m_ext_forces.col(1).setConstant(-m_gravity);
+			m_ext_forces.col(1) += 0.15 * m_temperatures;
+		}
 
 		// Function to update temperature uniformly on the mesh
 		void updateTemperatureUniform() {
@@ -692,6 +675,60 @@ namespace ProjDyn {
 			m_mass_matrix.setIdentity();
 			for (int i = 0; i < m_num_verts; i++) {
 				m_mass_matrix.coeffRef(i, i) = m_vertex_masses(i);
+			}
+		}
+
+		// Build a neighbor map of the vertices
+		void buildNeighbors() {
+			// check if the mesh has tetrahedrons, build map accordingly from tets or triangles
+			if (m_tetrahedrons.rows() > 0) {
+				std::map<int, std::vector<int>> dictNeighbors;
+				for (int i = 0; i < m_num_verts; i++) {
+					std::vector<int> vect;
+					dictNeighbors.insert(std::pair <int, std::vector<int>>(i, vect));
+				}
+				for (Index i = 0; i < m_tetrahedrons.rows(); i++) {
+					for (int j = 0; j < 4; j++) {
+						std::vector<ProjDyn::Index> edge;
+						edge.push_back(m_tetrahedrons(i, j));
+						edge.push_back(m_tetrahedrons(i, (j + 1) % 4));
+						// Easy way to make sure each edge only gets added once:
+						if (edge[0] < edge[1]) {
+							dictNeighbors.at(edge[0]).push_back(edge[1]);
+							dictNeighbors.at(edge[1]).push_back(edge[0]);
+						}
+					}
+				}
+				m_neighbors = dictNeighbors;
+			}
+			else {
+				std::map<int, std::vector<int>> dictNeighbors;
+				for (int i = 0; i < m_num_verts; i++) {
+					std::vector<int> vect;
+					for (int k = 0; k < m_num_tris; k++) {
+						for (int j = 0; j < 3; j++) {
+							auto ind = m_triangles(k, j);
+							if (ind == i) {
+								if (j == 0) {
+									vect.push_back(m_triangles(k, 1));
+									vect.push_back(m_triangles(k, 2));
+								}
+								else if (j == 1) {
+									vect.push_back(m_triangles(k, 0));
+									vect.push_back(m_triangles(k, 2));
+								}
+								else {
+									vect.push_back(m_triangles(k, 0));
+									vect.push_back(m_triangles(k, 1));
+								}
+							}
+						}
+					}
+					sort(vect.begin(), vect.end());
+					vect.erase(unique(vect.begin(), vect.end()), vect.end());
+					dictNeighbors.insert(std::pair <int, std::vector<int>>(i, vect));
+				}
+				m_neighbors = dictNeighbors;
 			}
 		}
 	};
