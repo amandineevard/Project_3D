@@ -211,8 +211,7 @@ namespace ProjDyn {
                 m_velocities = (1. / m_time_step) * (m_positions - m_old_positions);
             }
 
-			// ------------------------------------
-			// Update temperature here
+			// Update temperature using the selected model
 			if(m_temperature_model == linear){
 				updateTemperatureHeight();
 			}
@@ -226,9 +225,10 @@ namespace ProjDyn {
 				std::cerr << "No temperature model chosen!";
 			}
 
+			// Gravity can be made temperature dependent to obtaion the "balloon effect"
+			// TODO: generalize (switch on and off from GUI?)
 			//updateGravity();
 
-			// ------------------------------------
             return true;
         }
 
