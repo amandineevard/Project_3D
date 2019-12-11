@@ -110,8 +110,7 @@ public:
             bool was_active = m_simActive;
             stop();
             m_simulator.setTemperatureModel(linear);
-            m_simulator.setTempCoefLinearBottom(100.0);
-			m_simulator.setTempCoefLinearTop(0.0);
+            m_simulator.setTempCoefLinear(0.0);
             updateConstraintsGUI();
 			updateTemperatureGUI();
             if (was_active) {
@@ -124,7 +123,7 @@ public:
             bool was_active = m_simActive;
             stop();
             m_simulator.setTemperatureModel(diffusion);
-            m_simulator.setTempCoefDiffusion(1.0);
+            m_simulator.setTempCoefDiffusion(0.0);
             updateConstraintsGUI();
 			updateTemperatureGUI();
             if (was_active) {

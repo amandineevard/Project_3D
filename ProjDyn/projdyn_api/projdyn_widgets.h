@@ -115,12 +115,12 @@ public:
             setRange(std::pair<float, float>(0, 100));
         }
         if(tm == linear){
-            setValue(simulator->getTempCoefLinearBottom());
-            setRange(std::pair<float, float>(0, 200));
+            setValue(simulator->getTempCoefLinear());
+            setRange(std::pair<float, float>(0, 100));
         }
        if(tm == diffusion){
            setValue(simulator->getTempCoefDiffusion());
-           setRange(std::pair<float, float>(0, 3));
+           setRange(std::pair<float, float>(0, 1));
        }
 
         setFixedWidth(80);
@@ -128,20 +128,20 @@ public:
         // Add a textbox and set defaults
         m_textBox = new TextBox(parent);
         m_textBox->setFixedSize(Vector2i(80, 25));
-        m_textBox->setValue(ProjDyn::floatToString(value()));
+        m_textBox->setValue(ProjDyn::intToString(value()));
 
         setCallback([this](float v) {
             float vv = v;
-            m_textBox->setValue(ProjDyn::floatToString(v));
+            //m_textBox->setValue(ProjDyn::floatToString(v));
             //m_constraint->weight = vv;
             double tm = m_simulator->getTemperatureModel();
             if(tm == uniform){
                 m_simulator->setTempCoefUniform(vv);
-                m_textBox->setValue(ProjDyn::floatToString(v));
+                m_textBox->setValue(ProjDyn::intToString(v));
             }
             if(tm == linear){
-                m_simulator->setTempCoefLinearBottom(vv);
-                m_textBox->setValue(ProjDyn::floatToString(v));
+                m_simulator->setTempCoefLinear(vv);
+                m_textBox->setValue(ProjDyn::intToString(v));
             }
             if(tm == diffusion){
                 m_simulator->setTempCoefDiffusion(vv);
@@ -158,7 +158,7 @@ public:
                 m_simulator->setTempCoefUniform(vv);
             }
             if(tm == linear){
-                m_simulator->setTempCoefLinearBottom(vv);
+                m_simulator->setTempCoefLinear(vv);
             }
             if(tm == diffusion){
                 m_simulator->setTempCoefDiffusion(vv);
@@ -225,7 +225,6 @@ public:
 		m_viewer = viewer;
 		m_numVerts = numVerts;
 
-		// TODO: are initial value and range really general or some adaptation to different constraints is needed?
 		setValue(0);
 		setRange(std::pair<float, float>(-1, 1));
 		setFixedWidth(80);

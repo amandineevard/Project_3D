@@ -118,4 +118,11 @@ namespace ProjDyn {
         return str;
     }
 
+	static std::string intToString(float v) {
+		char text[50];
+		int n = sprintf(text, "%i", static_cast<int>(v));
+		std::string str(text, n);
+		return str;
+	}
+
 }

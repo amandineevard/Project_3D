@@ -249,9 +249,9 @@ namespace ProjDyn {
 		// Function to update temperature according to height
 		void updateTemperatureHeight() {
 			// TODO: improve implementation (add also m_linear_top_temperature control and get rid of meaningless coef)
-			Scalar coef = 20;
-			Scalar slope = (m_linear_bottom_temperature - m_linear_top_temperature) / m_floorHeight * coef;
-			Scalar intercept = m_linear_bottom_temperature - slope * m_floorHeight;
+			Scalar slope_coef = 50 * (1 - m_linear_temperature_coef / 100.0);
+			Scalar slope = slope_coef * m_linear_temperature_coef / m_floorHeight;
+			Scalar intercept = m_linear_temperature_coef - slope * m_floorHeight;
 			Vector interceptTemp;
 			interceptTemp.resize(m_num_verts);
 			interceptTemp.setOnes();
@@ -259,11 +259,11 @@ namespace ProjDyn {
 			m_temperatures = interceptTemp +  slope * m_positions.col(1);
 
 			for (int i = 0; i < m_num_verts; i++) {
-				if (m_temperatures[i] < 0) {
-					m_temperatures[i] = 0;
+				if (m_temperatures[i] < 0.0) {
+					m_temperatures[i] = 0.0;
 				}
-				else if (m_temperatures[i] > m_linear_bottom_temperature) {
-					m_temperatures[i] = m_linear_bottom_temperature;
+				else if (m_temperatures[i] > 100.0) {
+					m_temperatures[i] = 100.0;
 				}
 			}
 
@@ -361,20 +361,12 @@ namespace ProjDyn {
 			m_uniform_temperature = t;
 		}
 
-		const double getTempCoefLinearTop() const{
-			return m_linear_top_temperature;
+		const double getTempCoefLinear() const {
+			return m_linear_temperature_coef;
 		}
 
-		const double getTempCoefLinearBottom() const {
-			return m_linear_bottom_temperature;
-		}
-
-		void setTempCoefLinearTop(double t){
-			m_linear_top_temperature = t;
-		}
-
-		void setTempCoefLinearBottom(double t) {
-			m_linear_bottom_temperature = t;
+		void setTempCoefLinear(double t) {
+			m_linear_temperature_coef = t;
 		}
 
 		const double getTempCoefDiffusion() const{
@@ -553,16 +545,13 @@ namespace ProjDyn {
 
 		// Temperature
 		Vector m_temperatures;
-
-		//neighbors
-		std::map<int, std::vector<int>> m_neighbors;
-
-		//temperature model:
 		TemperatureModel m_temperature_model = none;
-		Scalar m_temp_coef_diffusion;
 		Scalar m_uniform_temperature;
-		Scalar m_linear_top_temperature = 0; // with linear increase the reference value is always 0 (TODO: generalize)
-		Scalar m_linear_bottom_temperature;
+		Scalar m_linear_temperature_coef;
+		Scalar m_temp_coef_diffusion;
+
+		// Neighbors map
+		std::map<int, std::vector<int>> m_neighbors;
 
 		// Internal quantities during simulation
 		Positions m_velocities, m_momentum, m_old_positions;
