@@ -217,7 +217,7 @@ namespace ProjDyn {
 				updateTemperatureHeight();
 			}
 			else if (m_temperature_model == diffusion) {
-				updateTemperatureDiffusion(100);
+				updateTemperatureDiffusion();
 			}
 			else if (m_temperature_model == uniform) {
 				updateTemperatureUniform();
@@ -246,9 +246,13 @@ namespace ProjDyn {
 			m_temperatures = newTemp;
 		}
 
-		// Function to update temperature according to height
+		/* Function to update temperature according to height.
+		This implementation tries to avoid the need of two paramenters
+		(floor temperature and temperature gradient) so that the GUI is kept minimal.
+		m_linear_temperature_coef corresponds to floor temperature but
+		it also influences the slope value via slope_coef.
+		The smaller is the slope_coef, the smaller is the temperature gradient. */
 		void updateTemperatureHeight() {
-			// TODO: improve implementation (add also m_linear_top_temperature control and get rid of meaningless coef)
 			Scalar slope_coef = 50 * (1 - m_linear_temperature_coef / 100.0);
 			Scalar slope = slope_coef * m_linear_temperature_coef / m_floorHeight;
 			Scalar intercept = m_linear_temperature_coef - slope * m_floorHeight;
@@ -256,38 +260,26 @@ namespace ProjDyn {
 			interceptTemp.resize(m_num_verts);
 			interceptTemp.setOnes();
 			interceptTemp *= intercept;
-			m_temperatures = interceptTemp +  slope * m_positions.col(1);
+			m_temperatures = interceptTemp + slope * m_positions.col(1);
 
+			// Clip temperatures outside the interval [0.0, 100.0]
 			for (int i = 0; i < m_num_verts; i++) {
-				if (m_temperatures[i] < 0.0) {
-					m_temperatures[i] = 0.0;
-				}
-				else if (m_temperatures[i] > 100.0) {
-					m_temperatures[i] = 100.0;
-				}
+				m_temperatures[i] = clamp(m_temperatures[i], 0.0, 100.0);
 			}
 
 		}
 
-		// Function to update temperature according to heigth
-		void updateTemperatureDiffusion(Scalar maxTemp) {
-			/*Vector groundTemp;
-			groundTemp.resize(m_num_verts);
-			groundTemp.setOnes();
-			groundTemp *= maxTemp;*/
-
-			Vector groundHeight;
-			groundHeight.resize(m_num_verts);
-			groundHeight.setOnes();
-			groundHeight *= m_floorHeight;
-
-
+		// Function to update temperature letting heat diffuse on the surface
+		void updateTemperatureDiffusion() {
+			// Set the heat source next to the floor: 
+			// hot vertices have the max temperature (100)
 			for (int i = 0; i < m_num_verts; i++) {
-				if (m_positions.col(1)[i]-groundHeight[i] < 0.00001) {
-					m_temperatures[i] = maxTemp;
+				if (m_positions.col(1)[i] - m_floorHeight < 0.00001) {
+					m_temperatures[i] = 100.0;
 				}
 			}
 
+			// Let the heat diffuse on the surface
 			Vector new_temp;
 			new_temp.resize(m_num_verts);
 			new_temp.setZero();
@@ -295,16 +287,13 @@ namespace ProjDyn {
 				Scalar ti = m_temperatures[i];
 				std::vector<int> neig = m_neighbors.at(i);
 				int nb_neighbors = neig.size();
-				//std::cout << "nb_neighbors i = " << nb_neighbors <<"\n";
 				Scalar new_temp_i = 0;
-				for(int j: neig){
+				for(int j : neig) {
 					Scalar tj = m_temperatures[j];
-					new_temp_i += 1.0/nb_neighbors * (tj-ti)*m_temp_coef_diffusion*m_time_step/((m_positions.row(i)-m_positions.row(j)).norm());
+					new_temp_i += 1.0/nb_neighbors * (tj - ti) * m_temp_coef_diffusion *
+						m_time_step/((m_positions.row(i) - m_positions.row(j)).norm());
 				}
-				new_temp[i] = ti+new_temp_i;
-				//std::cout << "new temp i = " << new_temp_i <<"\n";
-				if (new_temp[i] > maxTemp){new_temp[i] = maxTemp;}
-				if(new_temp[i] <0 ){new_temp[i] = 0;}
+				new_temp[i] = clamp(ti + new_temp_i, 0.0, 100.0);
 			}
 			m_temperatures = new_temp;
 		}
@@ -333,14 +322,13 @@ namespace ProjDyn {
 		}
 
 		// Reset vertex positions to their initial positions, as given when setMesh() was called.
-		// NEW: also reset temperature
+		// Velocities and temperatures are reinitialized too.
 		void resetPositions() {
 			m_positions = m_initial_positions;
 			m_velocities.setZero(m_positions.rows(), 3);
 			m_temperatures.setZero();
 		}
 
-		// Getter for temperatures
 		const Vector& getTemperatures() const {
 			return m_temperatures;
 		}
@@ -543,14 +531,25 @@ namespace ProjDyn {
 		// the momentum term can be computed cheaper.
 		Positions m_ext_forces;
 
-		// Temperature
+		// --------------Temperature related members------------------
+
+		// Vertices temperatures
 		Vector m_temperatures;
+
+		// Model used to update temperature (uniform, linear, diffusion)
 		TemperatureModel m_temperature_model = none;
+
+		// Temperature value for the constant model
 		Scalar m_uniform_temperature;
+
+		// Floor temperature for linear model
+		// (see updateTemperatureHeight() description for details)
 		Scalar m_linear_temperature_coef;
+
+		// Diffusion coefficient for dissusion model
 		Scalar m_temp_coef_diffusion;
 
-		// Neighbors map
+		// Neighbors map, used in diffusion model
 		std::map<int, std::vector<int>> m_neighbors;
 
 		// Internal quantities during simulation
