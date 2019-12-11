@@ -227,14 +227,14 @@ namespace ProjDyn {
 
 			// Gravity can be made temperature dependent to obtaion the "balloon effect"
 			// TODO: generalize (switch on and off from GUI?)
-			//updateGravity();
+			updateGravity();
 
             return true;
         }
 
 		void updateGravity() {
 			m_ext_forces.col(1).setConstant(-m_gravity);
-			m_ext_forces.col(1) += 0.15 * m_temperatures;
+			m_ext_forces.col(1) += m_fvert_coef * m_temperatures;
 		}
 
 		// Function to update temperature uniformly on the mesh
@@ -363,6 +363,14 @@ namespace ProjDyn {
 
 		void setTempCoefDiffusion(double t){
 			m_temp_coef_diffusion = t;
+		}
+
+		void setFVerticalCoef(double coef) {
+			m_fvert_coef = coef;
+		}
+
+		const double getFVerticalCoef() const{
+			return m_fvert_coef;
 		}
 
 		const Triangles& getTriangles() const {
@@ -548,6 +556,9 @@ namespace ProjDyn {
 
 		// Diffusion coefficient for dissusion model
 		Scalar m_temp_coef_diffusion;
+
+		// External verical force influence coefficient
+		Scalar m_fvert_coef;
 
 		// Neighbors map, used in diffusion model
 		std::map<int, std::vector<int>> m_neighbors;

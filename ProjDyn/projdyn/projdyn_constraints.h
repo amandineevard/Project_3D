@@ -370,7 +370,7 @@ namespace ProjDyn {
 
 			// m_forced_strain states how much the singluar values of the gradient will be modified.
 			// It can be both positive (expansion) or negative (shrinkage)
-			m_forced_strain = temperature_coef * temperature;
+			m_forced_strain = temperature_coef * (temperature);
 		}
 
         virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {

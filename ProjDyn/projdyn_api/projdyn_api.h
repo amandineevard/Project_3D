@@ -98,6 +98,7 @@ public:
             stop();
             m_simulator.setTemperatureModel(uniform);
             m_simulator.setTempCoefUniform(0.0);
+			m_simulator.setFVerticalCoef(0.0);
             updateConstraintsGUI();
 			updateTemperatureGUI();
             if (was_active) {
@@ -111,6 +112,7 @@ public:
             stop();
             m_simulator.setTemperatureModel(linear);
             m_simulator.setTempCoefLinear(0.0);
+			m_simulator.setFVerticalCoef(0.0);
             updateConstraintsGUI();
 			updateTemperatureGUI();
             if (was_active) {
@@ -124,6 +126,7 @@ public:
             stop();
             m_simulator.setTemperatureModel(diffusion);
             m_simulator.setTempCoefDiffusion(0.0);
+			m_simulator.setFVerticalCoef(0.0);
             updateConstraintsGUI();
 			updateTemperatureGUI();
             if (was_active) {
@@ -131,7 +134,6 @@ public:
             }
             popupBtnTemp->setPushed(false);
         });
-
 
         PopupButton* popupBtn = new PopupButton(pd_win, "Add constraints", ENTYPO_ICON_LINK);
         Popup* popup = popupBtn->popup();
@@ -314,6 +316,21 @@ public:
 			update();
 			if (wasRunning) start();
 			});
+
+			new Label(m_temperature_window, "Vertical force coef.", "sans-bold");
+			Widget* panelVerticalForce = new Widget(m_temperature_window);
+			panelVerticalForce->setLayout(new BoxLayout(nanogui::Orientation::Horizontal, nanogui::Alignment::Middle, 0, 10));
+			VerticalForceSlider* forceSlider = new VerticalForceSlider(panelVerticalForce, m_viewer, m_simulator.getNumVerts(), &m_simulator);
+
+			// Re-initialize system and update positions once the user lets go of the slider
+			forceSlider->setFinalCallback([this, forceSlider](float v) {
+				forceSlider->setValue(v);
+				bool wasRunning = m_simActive;
+				stop();
+				m_simulator.initializeSystem();
+				update();
+				if (wasRunning) start();
+				}); 
 
 		// For each constraint group add controls over temperature dependent properties
 		for (const auto& g : m_simulator.getConstraintGroups()) {
@@ -524,7 +541,10 @@ public:
 		ProjDyn::Index n_vertices = m_simulator.getNumVerts();
 		MatrixXf vertex_color(3, n_vertices);
 		vertex_color.setZero();
-		for (int i = 0; i < n_vertices; i++) vertex_color.col(i) = Vector3f(temperatures[i]/100, 0.2, 1.0 - temperatures[i] / 100);
+		for (int i = 0; i < n_vertices; i++) {
+			float value = temperatures[i]/100;
+			vertex_color.col(i) = Vector3f(value, 0.2, 1.0 - value);
+		}
 		m_viewer->changeColor(vertex_color);
 		std::cout << "Mean temperature: " << temperatures.mean() << std::endl;
 	}
