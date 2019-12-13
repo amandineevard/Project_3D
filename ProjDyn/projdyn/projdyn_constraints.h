@@ -36,6 +36,11 @@ namespace ProjDyn {
         std::string name = "Unknown";
         std::vector<ConstraintPtr> constraints;
         Scalar weight = 1.;
+		unsigned plastic_updates_count = 0;
+
+		void resetPlasticUpdatesCount() {
+			plastic_updates_count = 0;
+		}
     };
 
     /* Blueprint of a Projectiv Dynamics constaint (weight, p, A) */
@@ -109,10 +114,10 @@ namespace ProjDyn {
         void setWeightMultiplier(Scalar mult) { m_weight_mult = mult; }
 
 		/** Returns the temperature depenent coefficient of the constraint */
-		Scalar getTemperatureCoef() const { return temperature_coef; }
+		Scalar getTemperatureCoef() const { return m_temperature_coef; }
 
 		/** Changes the temperature depenent coefficient of the constraint */
-		void setTemperatureCoef(Scalar coef) { temperature_coef = coef; }
+		void setTemperatureCoef(Scalar coef) { m_temperature_coef = coef; }
 
 		bool isTemperatureDependent() { return is_temperature_dependent; }
 
@@ -142,8 +147,8 @@ namespace ProjDyn {
         Index m_constraint_id = 0;
 
 		/** Temperature dependent coefficient.
-		It has different meanings depending on the child class. */
-		Scalar temperature_coef = 0;
+		It has different effects depending on the child class. */
+		Scalar m_temperature_coef = 0;
 
 		/** Boolean variable that states if the constraint can be made temperature dependent.
 		Useful for adding to the Temperature box in the GUI only actually meaningful sliders. */
@@ -182,7 +187,7 @@ namespace ProjDyn {
 
 		void updateAttributeTemp(const Vector& temperatures) {
 			Scalar temperature = 0.5 * (temperatures[m_vertex_indices[0]] + temperatures[m_vertex_indices[1]]);
-			m_rest_length = m_initial_rest_length + (m_initial_rest_length * temperature_coef * temperature);
+			m_rest_length = m_initial_rest_length + (m_initial_rest_length * m_temperature_coef * temperature);
 		}
 
         virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {
@@ -330,36 +335,47 @@ namespace ProjDyn {
 
             m_strain_freedom = strain_freedom;
 
-            // 3d edges of tet
-            Eigen::Matrix<Scalar, 3, 3> edges;
-            edges.col(0) = (positions.row(m_vertex_indices[1]) - positions.row(m_vertex_indices[0]));
-            edges.col(1) = (positions.row(m_vertex_indices[2]) - positions.row(m_vertex_indices[0]));
-            edges.col(2) = (positions.row(m_vertex_indices[3]) - positions.row(m_vertex_indices[0]));
-
-            // Inverse of edges matrix for computation of the deformation gradient
-            m_rest_edges_inv = edges.inverse();
-            bool didCorrect = false;
-            while (!m_rest_edges_inv.allFinite()) {
-                std::cout << "Illegal edges in mesh!" << std::endl;
-                for (int c = 0; c < 3; c++) {
-                    if (edges.col(c).norm() < 1e-12) {
-                        for (int r = 0; r < 3; r++) {
-                            edges(r, c) = (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 1e-11;
-                        }
-                    }
-                }
-                for (int r = 0; r < 3; r++) {
-                    if (edges.row(r).norm() < 1e-12) {
-                        for (int c = 0; c < 3; c++) {
-                            edges(r, c) = (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 1e-11;
-                        }
-                    }
-                }
-                m_rest_edges_inv = edges.inverse();
-                didCorrect = true;
-            }
-            if (didCorrect) std::cout << "Fixed!" << std::endl;
+			updateReferencePositions(positions);
         }
+
+		/* Updates the reference (rest) configuration by computing m_rest_edges_inv.
+		The method is used both for initialization (in the constructor)
+		and for adding a plasticity effect (when called by Simulator::step()). */
+		void updateReferencePositions(const Positions& positions) {
+			// 3d edges of tet
+			Eigen::Matrix<Scalar, 3, 3> edges;
+			edges.col(0) = (positions.row(m_vertex_indices[1]) - positions.row(m_vertex_indices[0]));
+			edges.col(1) = (positions.row(m_vertex_indices[2]) - positions.row(m_vertex_indices[0]));
+			edges.col(2) = (positions.row(m_vertex_indices[3]) - positions.row(m_vertex_indices[0]));
+
+			// Inverse of edges matrix for computation of the deformation gradient
+			m_rest_edges_inv = edges.inverse();
+			bool didCorrect = false;
+			while (!m_rest_edges_inv.allFinite()) {
+				std::cout << "Illegal edges in mesh!" << std::endl;
+				for (int c = 0; c < 3; c++) {
+					if (edges.col(c).norm() < 1e-12) {
+						for (int r = 0; r < 3; r++) {
+							edges(r, c) = (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 1e-11;
+						}
+					}
+				}
+				for (int r = 0; r < 3; r++) {
+					if (edges.row(r).norm() < 1e-12) {
+						for (int c = 0; c < 3; c++) {
+							edges(r, c) = (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 1e-11;
+						}
+					}
+				}
+				m_rest_edges_inv = edges.inverse();
+				didCorrect = true;
+			}
+			if (didCorrect) std::cout << "Fixed!" << std::endl;
+
+			// Always shift m_temperature_coef back to zero to avoid discontinuity when constraint is plastically updated
+			m_temperature_coef = 0;
+		}
+
 
 		void updateAttributeTemp(const Vector& temperatures) {
 			// Compute tetrahedron temperature
@@ -370,7 +386,7 @@ namespace ProjDyn {
 
 			// m_forced_strain states how much the singluar values of the gradient will be modified.
 			// It can be both positive (expansion) or negative (shrinkage)
-			m_forced_strain = temperature_coef * (temperature);
+			m_forced_strain = m_temperature_coef * (temperature);
 		}
 
         virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {
@@ -396,7 +412,7 @@ namespace ProjDyn {
 
 			// Modify singular values of deformation gradient:
 			// if there is no temperature dependency just use the m_strain_freedom as usual...
-			if (abs(temperature_coef) < 1e-5) {
+			if (abs(m_temperature_coef) < 1e-5) {
 				S(0) = clamp(S(0), 1. - m_strain_freedom, 1. + m_strain_freedom);
 				S(1) = clamp(S(1), 1. - m_strain_freedom, 1. + m_strain_freedom);
 				S(2) = clamp(S(2), 1. - m_strain_freedom, 1. + m_strain_freedom);
@@ -462,21 +478,31 @@ namespace ProjDyn {
 
             m_strain_freedom = 0.;
 
-            Eigen::Matrix<Scalar, 3, 2> edges, P;
-            // 3d edges of triangle
-            edges.col(0) = (positions.row(m_vertex_indices[1]) - positions.row(m_vertex_indices[0]));
-            edges.col(1) = (positions.row(m_vertex_indices[2]) - positions.row(m_vertex_indices[0]));
-
-            // Projection that embeds these edges isometrically in 2d, in a way that the first edge is aligned to the x-axis
-            P.col(0) = edges.col(0).normalized();
-            P.col(1) = (edges.col(1) - edges.col(1).dot(P.col(0)) * P.col(0)).normalized();
-
-            // Compute the 2d rest edges
-            Eigen::Matrix<Scalar, 2, 2> restEdges = P.transpose() * edges;
-
-            // ... and their inverse
-            m_rest_edges_inv = restEdges.inverse();
+			updateReferencePositions(positions);
         }
+
+		/* Updates the reference (rest) configuration by computing m_rest_edges_inv.
+		The method is used both for initialization (in the constructor)
+		and for adding a plasticity effect (when called by Simulator::step()). */
+		void updateReferencePositions(const Positions& positions) {
+			Eigen::Matrix<Scalar, 3, 2> edges, P;
+			// 3d edges of triangle
+			edges.col(0) = (positions.row(m_vertex_indices[1]) - positions.row(m_vertex_indices[0]));
+			edges.col(1) = (positions.row(m_vertex_indices[2]) - positions.row(m_vertex_indices[0]));
+
+			// Projection that embeds these edges isometrically in 2d, in a way that the first edge is aligned to the x-axis
+			P.col(0) = edges.col(0).normalized();
+			P.col(1) = (edges.col(1) - edges.col(1).dot(P.col(0)) * P.col(0)).normalized();
+
+			// Compute the 2d rest edges
+			Eigen::Matrix<Scalar, 2, 2> restEdges = P.transpose() * edges;
+
+			// ... and their inverse
+			m_rest_edges_inv = restEdges.inverse();
+
+			// Always shift m_temperature_coef back to zero to avoid discontinuity when constraint is plastically updated
+			m_temperature_coef = 0;
+		}
 
 		void updateAttributeTemp(const Vector& temperatures) {
 			// Compute triangle temperature
@@ -486,7 +512,7 @@ namespace ProjDyn {
 
 			// m_forced_strain states how much the singluar values of the gradient will be modified.
 			// It can be both positive (expansion) or negative (shrinkage)
-			m_forced_strain = temperature_coef * temperature;
+			m_forced_strain = m_temperature_coef * temperature;
 		}
 
         virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {
@@ -513,7 +539,7 @@ namespace ProjDyn {
             
 			// Modify singular values of deformation gradient:
 			// if there is no temperature dependency just use the m_strain_freedom as usual...
-			if(abs(temperature_coef) < 1e-5) {
+			if(abs(m_temperature_coef) < 1e-5) {
 				S(0) = clamp(S(0), 1. - m_strain_freedom, 1. + m_strain_freedom);
 				S(1) = clamp(S(1), 1. - m_strain_freedom, 1. + m_strain_freedom);
 			}
@@ -636,8 +662,8 @@ namespace ProjDyn {
 			
 			// High temperature induces mean curvature to be closer to zero (minimal surface)
 			// Normalized temperature is used so that m_rest_mean_curv is always non negative (it's a norm)
-			m_rest_mean_curv = m_original_rest_mean_curv * (1 + temperature_coef * (-temperature / 100.0));
-			m_rest_mean_curv_vec = m_original_rest_mean_curv_vec * (1 + temperature_coef * (-temperature / 100.0));
+			m_rest_mean_curv = m_original_rest_mean_curv * (1 + m_temperature_coef * (-temperature / 100.0));
+			m_rest_mean_curv_vec = m_original_rest_mean_curv_vec * (1 + m_temperature_coef * (-temperature / 100.0));
 		}
 
         virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {

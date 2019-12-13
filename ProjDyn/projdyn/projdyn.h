@@ -138,9 +138,7 @@ namespace ProjDyn {
 			m_temperatures.setZero();
 
 			//create array of neighbors:
-
 			buildNeighboors();
-
 
             // With this, the system is initialized
             m_system_init = true;
@@ -226,11 +224,69 @@ namespace ProjDyn {
 			}
 
 			// Gravity can be made temperature dependent to obtaion the "balloon effect"
-			// TODO: generalize (switch on and off from GUI?)
 			updateGravity();
+
+			// Update reference values in temperature dependent constraints to obtain a plasticity effect.
+			// (Implemented only in TriangleStrain and TetStrain)
+			for (const auto& g : m_constraintGroups) {
+				if (m_perform_plastic_update & (g->name == "Tet Strain") & (m_temperatures.mean() > 50) & (g->plastic_updates_count < 1)) {
+					for (auto constraint : g->constraints) {
+						// Downcast and access the member function that updates reference configuration
+						std::shared_ptr<ProjDyn::TetStrainConstraint> tet_strain_ptr =
+							std::dynamic_pointer_cast<ProjDyn::TetStrainConstraint> (constraint);
+						tet_strain_ptr->updateReferencePositions(m_positions);
+					}
+					std::cout << "TetStrain plastic update " << g->plastic_updates_count << std::endl;
+					g->plastic_updates_count++;
+					// Recompute rhs and lhs since matrix A has changed
+					updateSystemAfterPlasticity();
+				}
+				else if (m_perform_plastic_update & (g->name == "Tri Strain") & (m_temperatures.mean() > 50) & (g->plastic_updates_count < 1)) {
+					for (auto constraint : g->constraints) {
+						// Downcast and access the member function that updates reference configuration
+						std::shared_ptr<ProjDyn::TriangleStrainConstraint> triangle_strain_ptr =
+							std::dynamic_pointer_cast<ProjDyn::TriangleStrainConstraint> (constraint);
+						triangle_strain_ptr->updateReferencePositions(m_positions);
+					}
+					std::cout << "TriangleStrain plastic update " << g->plastic_updates_count << std::endl;
+					g->plastic_updates_count++;
+					// Recompute rhs and lhs since matrix A has changed
+					updateSystemAfterPlasticity();
+				}
+			}
 
             return true;
         }
+
+		/* Method called in step() after a plastic update takes place.
+		It just recomputes rhs and lhs since A_i matrix has changed. */
+		void updateSystemAfterPlasticity() {
+			// Recompute rhs
+			// Collect entries of constraint matrix
+			std::vector<Triplet> con_triplets, con_triplets_t;
+			Index row_ind = 0, row_ind2 = 0;;
+			for (auto c : m_constraints) {
+				// The following function adds the row sqrt(w_i) A_i S_i
+				// (using the notation of the paper) to the matrix
+				c->addConstraint(con_triplets, row_ind2, true, false);
+				// The following function adds the row w_i S_i^T A_i^T
+				// (using the notation of the paper) to the matrix
+				c->addConstraint(con_triplets_t, row_ind, false, true);
+			}
+			// Construct the "laplacian" matrix from the triplets,
+			// i.e. the matrix Sum_i w_i S_i^T A_i^T A_i S_i, which
+			// appears on the left hand side of the system of the global step
+			SparseMatrixRM temp1(row_ind, m_num_verts);
+			temp1.setFromTriplets(con_triplets.begin(), con_triplets.end());
+			SparseMatrix temp2 = temp1.transpose();
+			m_laplacian = temp2 * temp1;
+			// Also construct the matrix Sum_i w_i S_i^T A_i^T 
+			// which appears on the right hand side of the global step
+			m_constraint_mat_t.resize(m_num_verts, row_ind);
+			m_constraint_mat_t.setFromTriplets(con_triplets_t.begin(), con_triplets_t.end());
+			// Also lhs contains matrix A_i, recompute it
+			recomputeLHS();
+		}
 
 		void updateGravity() {
 			m_ext_forces.col(1).setConstant(-m_gravity);
@@ -322,11 +378,13 @@ namespace ProjDyn {
 		}
 
 		// Reset vertex positions to their initial positions, as given when setMesh() was called.
-		// Velocities and temperatures are reinitialized too.
+		// Velocities and temperatures are reinitialized too, constraints can be plastically updated again.
 		void resetPositions() {
 			m_positions = m_initial_positions;
 			m_velocities.setZero(m_positions.rows(), 3);
 			m_temperatures.setZero();
+			for (const auto& g : m_constraintGroups)
+				g->resetPlasticUpdatesCount();
 		}
 
 		const Vector& getTemperatures() const {
@@ -367,6 +425,14 @@ namespace ProjDyn {
 
 		void setFVerticalCoef(double coef) {
 			m_fvert_coef = coef;
+		}
+
+		void setPlasticUpdate(bool state) {
+			m_perform_plastic_update = state;
+		}
+
+		bool & getPlasticUpdate() {
+			return m_perform_plastic_update;
 		}
 
 		const double getFVerticalCoef() const{
@@ -562,6 +628,9 @@ namespace ProjDyn {
 
 		// Neighbors map, used in diffusion model
 		std::map<int, std::vector<int>> m_neighbors;
+
+		// States if a plastic update of Triangle and Tet Strain has to be done above a certain temperature
+		bool m_perform_plastic_update = false;
 
 		// Internal quantities during simulation
 		Positions m_velocities, m_momentum, m_old_positions;

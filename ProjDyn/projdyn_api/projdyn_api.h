@@ -236,7 +236,7 @@ public:
 	// Add an (empty) GUI window in which temperature
 	// gets a slider which controls a weight multiplier.
 	void initTemperatureGUI() {
-		m_temperature_window = new Window(m_viewer, "Temperature coefficients");
+		m_temperature_window = new Window(m_viewer, "Temperature control");
 		m_temperature_window->setPosition(Vector2i(780, 360));
 		m_temperature_window->setLayout(new GroupLayout());
 	}
@@ -290,9 +290,16 @@ public:
 			m_temperature_window->removeChild(0);
 		}
 
+		// Activate plastic update
+		CheckBox* plasticUpdateCB = new CheckBox(m_temperature_window, "Plastic update at 50 degrees");
+		//plasticUpdateCB->setChecked(m_simulator.getPlasticUpdate());
+		plasticUpdateCB->setCallback([this](bool state) {
+			m_simulator.setPlasticUpdate(state);
+		});
+
 		// Add temperature model coefficient slider:
 		TemperatureModel tm = m_simulator.getTemperatureModel();
-		std::string name = "";
+		std::string name = "No temperature model...";
 		if (tm == uniform){
 			name = "Uniform temperature";
 		}
