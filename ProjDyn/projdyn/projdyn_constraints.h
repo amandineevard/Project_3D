@@ -634,15 +634,15 @@ namespace ProjDyn {
 			// Temperature of the vertex already available
 			Scalar temperature = temperatures[m_vertex_indices[0]];
 			
-			// Low temperature implies shrinking (curvature decreases)
-			// High temperature implies inflation (curvature increases)
-			m_rest_mean_curv = m_original_rest_mean_curv * (1 + temperature_coef * clamp(0.5 - temperature / 100.0, -0.5, 0.0));
-			m_rest_mean_curv_vec = m_original_rest_mean_curv_vec * (1 + temperature_coef * clamp(0.5 - temperature / 100.0, -0.5, 0.0));
+			// High temperature induces mean curvature to be closer to zero (minimal surface)
+			// Normalized temperature is used so that m_rest_mean_curv is always non negative (it's a norm)
+			m_rest_mean_curv = m_original_rest_mean_curv * (1 + temperature_coef * (-temperature / 100.0));
+			m_rest_mean_curv_vec = m_original_rest_mean_curv_vec * (1 + temperature_coef * (-temperature / 100.0));
 		}
 
         virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {
 			// Use current temperature to change the reference curvature value:
-			// TODO: interpret as minimal surface
+			// High temperature forces the mean curvature to reduce (minimal surface)
 			updateAttributeTemp(temperatures);
 
             if (m_rest_mean_curv < 1e-12) {
