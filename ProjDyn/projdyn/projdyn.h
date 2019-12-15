@@ -330,8 +330,8 @@ namespace ProjDyn {
 			// Set the heat source next to the floor: 
 			// hot vertices have the max temperature (100)
 			for (int i = 0; i < m_num_verts; i++) {
-				if (m_positions.col(1)[i] - m_floorHeight < 0.00001) {
-					m_temperatures[i] = 100.0;
+				if (m_positions.col(1)[i] - m_floorHeight < 0.01) {
+					m_temperatures[i] += 2.0;
 				}
 			}
 
