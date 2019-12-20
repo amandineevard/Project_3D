@@ -662,8 +662,8 @@ namespace ProjDyn {
 			
 			// High temperature induces mean curvature to be closer to zero (minimal surface)
 			// Normalized temperature is used so that m_rest_mean_curv is always non negative (it's a norm)
-			m_rest_mean_curv = m_original_rest_mean_curv * (1 + m_temperature_coef * (-temperature / 100.0));
-			m_rest_mean_curv_vec = m_original_rest_mean_curv_vec * (1 + m_temperature_coef * (-temperature / 100.0));
+			m_rest_mean_curv = m_original_rest_mean_curv * (1 + m_temperature_coef * (temperature / 100.0));
+			m_rest_mean_curv_vec = m_original_rest_mean_curv_vec * (1 + m_temperature_coef * (temperature / 100.0));
 		}
 
         virtual void project(const Positions& positions, Positions& projection, const Vector& temperatures = Vector(0)) override {

@@ -233,8 +233,8 @@ public:
         m_constraint_window->setLayout(new GroupLayout());
     }
 
-	// Add an (empty) GUI window in which temperature
-	// gets a slider which controls a weight multiplier.
+	// Add an (empty) GUI window in which temperature gets a slider
+	// which controls a coefficient for temperature dependent constraints.
 	void initTemperatureGUI() {
 		m_temperature_window = new Window(m_viewer, "Temperature control");
 		m_temperature_window->setPosition(Vector2i(780, 360));

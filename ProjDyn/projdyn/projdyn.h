@@ -335,7 +335,7 @@ namespace ProjDyn {
 				}
 			}
 
-			// Let the heat diffuse on the surface
+			// Let heat diffuse along the edges (always on surface, also in volumne if tetrahedralized)
 			Vector new_temp;
 			new_temp.resize(m_num_verts);
 			new_temp.setZero();
@@ -620,10 +620,10 @@ namespace ProjDyn {
 		// (see updateTemperatureHeight() description for details)
 		Scalar m_linear_temperature_coef;
 
-		// Diffusion coefficient for dissusion model
+		// Diffusion coefficient for diffusion model
 		Scalar m_temp_coef_diffusion;
 
-		// External verical force influence coefficient
+		// External vertical force coefficient (buoyancy)
 		Scalar m_fvert_coef;
 
 		// Neighbors map, used in diffusion model
@@ -631,6 +631,8 @@ namespace ProjDyn {
 
 		// States if a plastic update of Triangle and Tet Strain has to be done above a certain temperature
 		bool m_perform_plastic_update = false;
+
+		// -----------------------------------------------------------
 
 		// Internal quantities during simulation
 		Positions m_velocities, m_momentum, m_old_positions;
